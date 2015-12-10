@@ -17,8 +17,20 @@ import com.facebook.presto.plugin.jdbc.BaseJdbcClient;
 import com.facebook.presto.plugin.jdbc.BaseJdbcConfig;
 import com.facebook.presto.plugin.jdbc.JdbcConnectorId;
 import com.facebook.presto.plugin.jdbc.JdbcOutputTableHandle;
+import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.DateType.DATE;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.TimeType.TIME;
+import static com.facebook.presto.spi.type.TimestampType.TIMESTAMP;
+import com.facebook.presto.spi.type.Type;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
+import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
+
+import java.sql.Types;
+
 import org.postgresql.Driver;
 
 import javax.inject.Inject;
@@ -64,5 +76,45 @@ public class PostgreSqlClient
         Statement statement = connection.createStatement();
         statement.setFetchSize(1000);
         return statement;
+    }
+
+    @Override
+    protected Type toPrestoType(int jdbcType)
+    {
+        switch (jdbcType) {
+          case Types.BIT:
+          case Types.BOOLEAN:
+            return BOOLEAN;
+          case Types.TINYINT:
+          case Types.SMALLINT:
+          case Types.INTEGER:
+          case Types.BIGINT:
+            return BIGINT;
+          case Types.FLOAT:
+          case Types.REAL:
+          case Types.DOUBLE:
+          case Types.NUMERIC:
+          case Types.DECIMAL:
+            return DOUBLE;
+          case Types.CHAR:
+          case Types.NCHAR:
+          case Types.VARCHAR:
+          case Types.NVARCHAR:
+          case Types.LONGVARCHAR:
+          case Types.LONGNVARCHAR:
+            return VARCHAR;
+          case Types.BINARY:
+          case Types.VARBINARY:
+          case Types.LONGVARBINARY:
+            return VARBINARY;
+          case Types.DATE:
+            return DATE;
+          case Types.TIME:
+            return TIME;
+          case Types.TIMESTAMP:
+            return TIMESTAMP;
+          default:
+            return VARBINARY;
+        }
     }
 }
