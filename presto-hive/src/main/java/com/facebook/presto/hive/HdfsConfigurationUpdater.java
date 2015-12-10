@@ -44,6 +44,7 @@ public class HdfsConfigurationUpdater
     private final String s3AwsSecretKey;
     private final boolean s3UseInstanceCredentials;
     private final boolean s3SslEnabled;
+    private final boolean s3SseEnabled;
     private final int s3MaxClientRetries;
     private final int s3MaxErrorRetries;
     private final Duration s3MaxBackoffTime;
@@ -55,6 +56,7 @@ public class HdfsConfigurationUpdater
     private final DataSize s3MultipartMinPartSize;
     private final File s3StagingDirectory;
     private final List<String> resourcePaths;
+    private final boolean pinS3ClientToCurrentRegion;
 
     @Inject
     public HdfsConfigurationUpdater(HiveClientConfig hiveClientConfig)
@@ -71,6 +73,7 @@ public class HdfsConfigurationUpdater
         this.s3AwsSecretKey = hiveClientConfig.getS3AwsSecretKey();
         this.s3UseInstanceCredentials = hiveClientConfig.isS3UseInstanceCredentials();
         this.s3SslEnabled = hiveClientConfig.isS3SslEnabled();
+        this.s3SseEnabled = hiveClientConfig.isS3SseEnabled();
         this.s3MaxClientRetries = hiveClientConfig.getS3MaxClientRetries();
         this.s3MaxErrorRetries = hiveClientConfig.getS3MaxErrorRetries();
         this.s3MaxBackoffTime = hiveClientConfig.getS3MaxBackoffTime();
@@ -82,6 +85,7 @@ public class HdfsConfigurationUpdater
         this.s3MultipartMinPartSize = hiveClientConfig.getS3MultipartMinPartSize();
         this.s3StagingDirectory = hiveClientConfig.getS3StagingDirectory();
         this.resourcePaths = hiveClientConfig.getResourceConfigFiles();
+        this.pinS3ClientToCurrentRegion = hiveClientConfig.isPinS3ClientToCurrentRegion();
     }
 
     public void updateConfiguration(Configuration config)
@@ -133,6 +137,7 @@ public class HdfsConfigurationUpdater
         // set config for S3
         config.setBoolean(PrestoS3FileSystem.S3_USE_INSTANCE_CREDENTIALS, s3UseInstanceCredentials);
         config.setBoolean(PrestoS3FileSystem.S3_SSL_ENABLED, s3SslEnabled);
+        config.setBoolean(PrestoS3FileSystem.S3_SSE_ENABLED, s3SseEnabled);
         config.setInt(PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES, s3MaxClientRetries);
         config.setInt(PrestoS3FileSystem.S3_MAX_ERROR_RETRIES, s3MaxErrorRetries);
         config.set(PrestoS3FileSystem.S3_MAX_BACKOFF_TIME, s3MaxBackoffTime.toString());
@@ -143,6 +148,7 @@ public class HdfsConfigurationUpdater
         config.setInt(PrestoS3FileSystem.S3_MAX_CONNECTIONS, s3MaxConnections);
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE, s3MultipartMinFileSize.toBytes());
         config.setLong(PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE, s3MultipartMinPartSize.toBytes());
+        config.setBoolean(PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION, pinS3ClientToCurrentRegion);
     }
 
     public static class NoOpDNSToSwitchMapping
