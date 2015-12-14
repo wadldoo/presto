@@ -29,6 +29,8 @@ import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
 
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.Types;
 
 import org.postgresql.Driver;
@@ -116,5 +118,18 @@ public class PostgreSqlClient
           default:
             return VARBINARY;
         }
+    }
+
+    @Override
+    protected ResultSet getTables(Connection connection, String schemaName, String tableName)
+        throws SQLException
+    {
+      DatabaseMetaData metadata = connection.getMetaData();
+      String escape = metadata.getSearchStringEscape();
+      return metadata.getTables(
+          connection.getCatalog(),
+          escapeNamePattern(schemaName, escape),
+          escapeNamePattern(tableName, escape),
+          new String[] {"TABLE", "VIEW"});
     }
 }
