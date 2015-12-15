@@ -490,6 +490,7 @@ public class BaseJdbcClient
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
+            case Types.OTHER:
                 return createVarcharType(min(columnSize, VarcharType.MAX_LENGTH));
             case Types.BINARY:
             case Types.VARBINARY:
