@@ -39,17 +39,21 @@ public class PrestoPreparedStatement
         extends PrestoStatement
         implements PreparedStatement
 {
+    private String sql;
+
     PrestoPreparedStatement(PrestoConnection connection, String sql)
             throws SQLException
     {
         super(connection);
+        this.sql = sql;
     }
 
     @Override
     public ResultSet executeQuery()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "executeQuery");
+        sql = sql.replaceAll("([?])", "null");
+        return super.executeQuery(sql);
     }
 
     @Override
@@ -57,6 +61,11 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         throw new NotImplementedException("PreparedStatement", "executeUpdate");
+    }
+
+    private String replaceQueryParam(String sql, String value)
+    {
+        return sql.replaceFirst("([?])", value);
     }
 
     @Override
@@ -84,42 +93,42 @@ public class PrestoPreparedStatement
     public void setShort(int parameterIndex, short x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setShort");
+        sql = replaceQueryParam(sql, Integer.toString(x));
     }
 
     @Override
     public void setInt(int parameterIndex, int x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setInt");
+        sql = replaceQueryParam(sql, Integer.toString(x));
     }
 
     @Override
     public void setLong(int parameterIndex, long x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setLong");
+        sql = replaceQueryParam(sql, Long.toString(x));
     }
 
     @Override
     public void setFloat(int parameterIndex, float x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setFloat");
+        sql = replaceQueryParam(sql, Float.toString(x));
     }
 
     @Override
     public void setDouble(int parameterIndex, double x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setDouble");
+        sql = replaceQueryParam(sql, Double.toString(x));
     }
 
     @Override
     public void setBigDecimal(int parameterIndex, BigDecimal x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setBigDecimal");
+        sql = replaceQueryParam(sql, x.toString());
     }
 
     @Override
@@ -182,7 +191,6 @@ public class PrestoPreparedStatement
     public void clearParameters()
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "clearParameters");
     }
 
     @Override
@@ -196,7 +204,20 @@ public class PrestoPreparedStatement
     public void setObject(int parameterIndex, Object x)
             throws SQLException
     {
-        throw new NotImplementedException("PreparedStatement", "setObject");
+        if (x instanceof String)
+            sql = sql.replaceFirst("([?])", "'" + x.toString() + "'");
+        else if (x instanceof BigDecimal)
+            setBigDecimal(parameterIndex, (BigDecimal)x);
+        else if (x instanceof Short)
+            setShort(parameterIndex, (Short) x);
+        else if (x instanceof Integer)
+            setInt(parameterIndex, (Integer) x);
+        else if (x instanceof Long)
+            setLong(parameterIndex, (Long) x);
+        else if (x instanceof Float)
+            setFloat(parameterIndex, (Float) x);
+        else if (x instanceof Double)
+            setDouble(parameterIndex, (Double) x);
     }
 
     @Override
