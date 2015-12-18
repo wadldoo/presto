@@ -20,6 +20,7 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
+import java.sql.PreparedStatement;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -871,6 +872,61 @@ public class TestDriver
                 assertFalse(rs.next());
             }
         }
+    }
+
+    @Test
+    public void testExecutePreparedWithQuery()
+        throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement("SELECT ? as param1StringValue, ? as param2NumberValue")) {
+
+                statement.clearParameters();
+                statement.setObject(1, "foo");
+                statement.setObject(2, 123);
+
+                ResultSet rs = statement.executeQuery();
+                assertNotNull(rs);
+
+                assertEquals(statement.getUpdateCount(), -1);
+                assertEquals(statement.getLargeUpdateCount(), -1);
+                assertTrue(rs.next());
+
+//                assertEquals(rs.getLong(3), 0);
+//                assertTrue(rs.wasNull());
+//                assertEquals(rs.getLong("z"), 0);
+//                assertTrue(rs.wasNull());
+//                assertNull(rs.getObject("z"));
+//                assertTrue(rs.wasNull());
+//
+                assertEquals(rs.getString(1), "foo");
+                assertFalse(rs.wasNull());
+                assertEquals(rs.getString("param1StringValue"), "foo");
+                assertFalse(rs.wasNull());
+
+                assertEquals(rs.getLong(2), 123);
+                assertFalse(rs.wasNull());
+                assertEquals(rs.getLong("param2NumberValue"), 123);
+                assertFalse(rs.wasNull());
+
+                assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test
+    public void testExecutePreparedWithQueryWithNullValues()
+        throws Exception
+    {
+      try (Connection connection = createConnection()) {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT ? as param1StringValue")) {
+
+          statement.clearParameters();
+
+          ResultSet rs = statement.executeQuery();
+          assertNotNull(rs);
+        }
+      }
     }
 
     @Test
