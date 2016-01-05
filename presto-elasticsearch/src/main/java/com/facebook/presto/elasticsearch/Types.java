@@ -13,10 +13,8 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import java.util.Locale;
-
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 final class Types
 {
@@ -24,7 +22,7 @@ final class Types
 
     public static <A, B extends A> B checkType(A value, Class<B> target, String name)
     {
-        requireNonNull(value, String.format(Locale.ENGLISH, "%s is null", name));
+        checkNotNull(value, "%s is null", name);
         checkArgument(target.isInstance(value),
                 "%s must be of type %s, not %s",
                 name,

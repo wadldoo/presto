@@ -1,31 +1,15 @@
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+
 package com.facebook.presto.elasticsearch;
 
-import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorTableHandle;
-import com.facebook.presto.spi.ConnectorTableLayout;
-import com.facebook.presto.spi.ConnectorTableLayoutHandle;
-import com.facebook.presto.spi.ConnectorTableLayoutResult;
 import com.facebook.presto.spi.ConnectorTableMetadata;
-import com.facebook.presto.spi.Constraint;
+import com.facebook.presto.spi.ReadOnlyConnectorMetadata;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.TableNotFoundException;
-import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -34,15 +18,14 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.facebook.presto.elasticsearch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class ElasticsearchMetadata
-        implements ConnectorMetadata
+        extends ReadOnlyConnectorMetadata
 {
     private final String connectorId;
 
@@ -51,8 +34,8 @@ public class ElasticsearchMetadata
     @Inject
     public ElasticsearchMetadata(ElasticsearchConnectorId connectorId, ElasticsearchClient elasticsearchClient)
     {
-        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
-        this.elasticsearchClient = requireNonNull(elasticsearchClient, "client is null");
+        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
+        this.elasticsearchClient = checkNotNull(elasticsearchClient, "client is null");
     }
 
     @Override
@@ -82,26 +65,7 @@ public class ElasticsearchMetadata
     }
 
     @Override
-    public List<ConnectorTableLayoutResult> getTableLayouts(ConnectorSession session, ConnectorTableHandle table, Constraint<ColumnHandle> constraint, Optional<Set<ColumnHandle>> desiredColumns)
-    {
-        ElasticsearchTableHandle handle = checkType(table, ElasticsearchTableHandle.class, "table");
-        ConnectorTableLayout layout = new ConnectorTableLayout(new ElasticsearchTableLayoutHandle(handle));
-        return ImmutableList.of(new ConnectorTableLayoutResult(layout, constraint.getSummary()));
-    }
-
-    @Override
-    public ConnectorTableLayout getTableLayout(ConnectorSession session, ConnectorTableLayoutHandle handle)
-    {
-        return new ConnectorTableLayout(handle);
-    }
-
-    @Override
-    public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
-    {
-        return getTableMetadata(table);
-    }
-
-    private ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table)
+    public ConnectorTableMetadata getTableMetadata(ConnectorTableHandle table)
     {
         ElasticsearchTableHandle elasticsearchTableHandle = checkType(table, ElasticsearchTableHandle.class, "table");
         checkArgument(elasticsearchTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
@@ -131,12 +95,13 @@ public class ElasticsearchMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public ColumnHandle getSampleWeightColumnHandle(ConnectorTableHandle tableHandle)
     {
-        return getColumnHandles(tableHandle);
+        return null;
     }
 
-    private Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorTableHandle tableHandle)
     {
         ElasticsearchTableHandle elasticsearchTableHandle = checkType(tableHandle, ElasticsearchTableHandle.class, "tableHandle");
         checkArgument(elasticsearchTableHandle.getConnectorId().equals(connectorId), "tableHandle is not for this connector");
@@ -149,37 +114,18 @@ public class ElasticsearchMetadata
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
         int index = 0;
         for (ColumnMetadata column : table.getColumnsMetadata()) {
-            ElasticsearchColumnMetadata esColumn = (ElasticsearchColumnMetadata) column;
-            columnHandles.put(
-                    esColumn.getName(),
-                    new ElasticsearchColumnHandle(
-                            connectorId,
-                            column.getName(),
-                            column.getType(),
-                            esColumn.getJsonPath(),
-                            esColumn.getJsonType(),
-                            index));
+            ElasticsearchColumnMetadata esColumn = (ElasticsearchColumnMetadata)column;
+            columnHandles.put(esColumn.getName(), new ElasticsearchColumnHandle(connectorId, column.getName(), column.getType(),
+                    esColumn.getJsonPath(), esColumn.getJsonType(), index));
             index++;
         }
         return columnHandles.build();
     }
 
     @Override
-    public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        return getColumnMetadata(tableHandle, columnHandle);
-    }
-
-    private ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
-    {
-        checkType(tableHandle, ElasticsearchTableHandle.class, "tableHandle");
-        return checkType(columnHandle, ElasticsearchColumnHandle.class, "columnHandle").getColumnMetadata();
-    }
-
-    @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        requireNonNull(prefix, "prefix is null");
+        checkNotNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName tableName : listTables(session, prefix)) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
@@ -211,5 +157,12 @@ public class ElasticsearchMetadata
             return listTables(session, prefix.getSchemaName());
         }
         return ImmutableList.of(new SchemaTableName(prefix.getSchemaName(), prefix.getTableName()));
+    }
+
+    @Override
+    public ColumnMetadata getColumnMetadata(ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        checkType(tableHandle, ElasticsearchTableHandle.class, "tableHandle");
+        return checkType(columnHandle, ElasticsearchColumnHandle.class, "columnHandle").getColumnMetadata();
     }
 }
