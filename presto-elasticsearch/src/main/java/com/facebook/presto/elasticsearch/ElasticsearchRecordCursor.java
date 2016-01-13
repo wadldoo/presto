@@ -3,28 +3,28 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
-import com.google.common.base.Throwables;
-import com.google.common.io.ByteSource;
-import com.google.common.io.CountingInputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.settings.ImmutableSettings;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
 
-import org.elasticsearch.common.settings.ImmutableSettings;
-import org.elasticsearch.common.settings.Settings;
-
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -32,114 +32,29 @@ import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class ElasticsearchRecordCursor
         implements RecordCursor
 {
-    //private static final Splitter LINE_SPLITTER = Splitter.on(",").trimResults();
-
     private final List<ElasticsearchColumnHandle> columnHandles;
-    //private final int[] fieldToColumnIndex;
-    Map<String, Integer> jsonpathToIndex = new HashMap<String, Integer>();
-
+    private final Map<String, Integer> jsonPathToIndex;
     private final Iterator<SearchHit> lines;
     private long totalBytes;
-
     private List<String> fields;
 
     public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchTableSource tableSource)
     {
         this.columnHandles = columnHandles;
+        this.jsonPathToIndex = new HashMap();
+        this.totalBytes = 0;
+        ArrayList<String> fieldsNeeded = new ArrayList();
 
-        //fieldToColumnIndex = new int[columnHandles.size()];
         for (int i = 0; i < columnHandles.size(); i++) {
-            ElasticsearchColumnHandle columnHandle = columnHandles.get(i);
-            //fieldToColumnIndex[i] = columnHandle.getOrdinalPosition();
-            //jsonpathToIndex.put(columnHandle.getColumnJsonPath(), columnHandle.getOrdinalPosition());
-
-            jsonpathToIndex.put(columnHandle.getColumnJsonPath(), i);
+            this.jsonPathToIndex.put(columnHandles.get(i).getColumnJsonPath(), i);
+            fieldsNeeded.add(columnHandles.get(i).getColumnJsonPath());
         }
 
-        /*
-        try (CountingInputStream input = new CountingInputStream(byteSource.openStream())) {
-            lines = byteSource.asCharSource(UTF_8).readLines().iterator();
-            totalBytes = input.getCount();
-        }
-        catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
-        */
-
-        Settings settings = ImmutableSettings.settingsBuilder()
-                .put("cluster.name", tableSource.getClusterName())
-                /*.put("client.transport.sniff", true)*/.build();
-
-        Client client = new TransportClient(settings)
-                .addTransportAddress(new InetSocketTransportAddress(
-                        tableSource.getHostaddress(), tableSource.getPort()));
-
-
-        //String[] fields = new String[] {"user", "dim.age" , "measurements.FACEBOOK_PAGE_CONSUMPTIONS_UNIQUE"};
-        ArrayList<String> fieldsNeeded = new ArrayList<String>();
-        for (int i = 0; i < columnHandles.size(); i++) {
-            ElasticsearchColumnHandle columnHandle = columnHandles.get(i);
-            fieldsNeeded.add(columnHandle.getColumnJsonPath());
-        }
-
-        /*SearchResponse response = client.prepareSearch(tableSource.getIndex())
-                .setTypes(tableSource.getType())
-                        //.setQuery(QueryBuilders.termQuery("dimensions.SN_TYPE", "facebook"))
-                .addFields(fieldsNeeded.toArray(new String[fieldsNeeded.size()]))
-                .setFrom(0).setSize(1000000).setExplain(true)
-                .execute()
-                .actionGet();
-        lines = Arrays.asList(response.getHits().getHits()).iterator();*/
-
-
-
-        lines = getRows_faster(client, tableSource, fieldsNeeded).iterator();
-
-        totalBytes = 0;
-
-        client.close();
-    }
-
-    private List<SearchHit> getRows(Client client, ElasticsearchTableSource tableSource, ArrayList<String> fieldsNeeded)
-    {
-        SearchResponse response = client.prepareSearch(tableSource.getIndex())
-                .setTypes(tableSource.getType())
-                        //.setQuery(QueryBuilders.termQuery("dimensions.SN_TYPE", "facebook"))
-                .addFields(fieldsNeeded.toArray(new String[fieldsNeeded.size()]))
-                .setFrom(0).setSize(1000000).setExplain(true)
-                .execute()
-                .actionGet();
-        return Arrays.asList(response.getHits().getHits());
-    }
-
-    private List<SearchHit> getRows_faster(Client client, ElasticsearchTableSource tableSource, ArrayList<String> fieldsNeeded)
-    {
-        List<SearchHit> rows = new ArrayList<>();
-        SearchResponse scrollResp = client.prepareSearch(tableSource.getIndex())
-                .setTypes(tableSource.getType())
-                .addFields(fieldsNeeded.toArray(new String[fieldsNeeded.size()]))
-                .setSearchType(SearchType.SCAN)
-                .setScroll(new TimeValue(60000))
-                .setSize(20000).execute().actionGet(); //20000 hits per shard will be returned for each scroll
-        //Scroll until no hits are returned
-        while (true) {
-
-            for (SearchHit hit : scrollResp.getHits().getHits()) {
-                //Handle the hit...
-                rows.add(hit);
-            }
-            scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(600000)).execute().actionGet();
-            //Break condition: No hits are returned
-            if (scrollResp.getHits().getHits().length == 0) {
-                break;
-            }
-        }
-        return rows;
+        this.lines = getRows(tableSource, fieldsNeeded).iterator();
     }
 
     @Override
@@ -175,38 +90,23 @@ public class ElasticsearchRecordCursor
         }
         SearchHit hit = lines.next();
 
-        //fields = LINE_SPLITTER.splitToList(line);
-        fields = new ArrayList<String>(Collections.nCopies(columnHandles.size(), "-1"));
+        fields = new ArrayList(Collections.nCopies(columnHandles.size(), "-1"));
 
-        Map<String, SearchHitField> map =  hit.getFields();
+        Map<String, SearchHitField> map = hit.getFields();
         for (Map.Entry<String, SearchHitField> entry : map.entrySet()) {
             String jsonPath = entry.getKey().toString();
-            SearchHitField fieldvar = entry.getValue();
+            SearchHitField entryValue = entry.getValue();
 
-            // we get the value , wrapped in a list (of size 1 ofcourse) -> [value] (The java api returns in this way)
-            ArrayList<Object> lis = new ArrayList<Object>(fieldvar.getValues());
-            // get the value
+            // we get the value, wrapped in a list (of size 1 of course) -> [value] (The java api returns in this way)
+            ArrayList<Object> lis = new ArrayList(entryValue.getValues());
             String value = String.valueOf(lis.get(0));
 
-            fields.set(jsonpathToIndex.get(jsonPath), value);
-
-
-            //System.out.println("key, " + path + " value " + lis.get(0) );
+            fields.set(jsonPathToIndex.get(jsonPath), value);
         }
 
         totalBytes += fields.size();
 
-
         return true;
-    }
-
-    private String getFieldValue(int field)
-    {
-        checkState(fields != null, "Cursor has not been advanced yet");
-
-        //int columnIndex = fieldToColumnIndex[field];
-        //return fields.get(columnIndex);
-        return fields.get(field);
     }
 
     @Override
@@ -238,6 +138,12 @@ public class ElasticsearchRecordCursor
     }
 
     @Override
+    public Object getObject(int field)
+    {
+        return null;
+    }
+
+    @Override
     public boolean isNull(int field)
     {
         checkArgument(field < columnHandles.size(), "Invalid field index");
@@ -253,5 +159,72 @@ public class ElasticsearchRecordCursor
     @Override
     public void close()
     {
+    }
+
+    String[] getIndices(Client client, String  type)
+    {
+        return Arrays.asList(client
+                .admin()
+                .cluster()
+                .prepareState()
+                .execute()
+                .actionGet()
+                .getState()
+                .getMetaData()
+                .concreteAllIndices())
+                .stream()
+                .filter(e -> e.startsWith(type.concat("_")))
+                .toArray(size -> new String[size]);
+    }
+
+    List<SearchHit> getRows(ElasticsearchTableSource tableSource, ArrayList<String> fieldsNeeded)
+    {
+        List<SearchHit> result = new ArrayList<>();
+        int port = tableSource.getPort();
+        String hostaddress = tableSource.getHostaddress();
+        String type = tableSource.getType();
+
+        System.out.println("type :" + type);
+        System.out.println("hostaddress :" + hostaddress);
+        System.out.println("port :" + port);
+
+        Settings settings = ImmutableSettings.settingsBuilder()
+                .put("cluster.name", tableSource.getClusterName())
+                .build();
+        try (Client client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(hostaddress, port))) {
+
+            SearchResponse scrollResp = client
+                    .prepareSearch(getIndices(client, type))
+                    .setTypes(tableSource.getType())
+                    .addFields(fieldsNeeded.toArray(new String[fieldsNeeded.size()]))
+                    .setSearchType(SearchType.SCAN)
+                    .setScroll(new TimeValue(60000))
+                    .setSize(20000).execute()
+                    .actionGet(); //20000 hits per shard will be returned for each scroll
+
+            //Scroll until no hits are returned
+            while (true) {
+
+                for (SearchHit hit : scrollResp.getHits().getHits()) {
+                    result.add(hit);
+                }
+
+                scrollResp = client
+                        .prepareSearchScroll(scrollResp.getScrollId())
+                        .setScroll(new TimeValue(600000)).execute().actionGet();
+
+                if (scrollResp.getHits().getHits().length == 0) {
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    String getFieldValue(int field)
+    {
+        checkState(fields != null, "Cursor has not been advanced yet");
+        return fields.get(field);
     }
 }

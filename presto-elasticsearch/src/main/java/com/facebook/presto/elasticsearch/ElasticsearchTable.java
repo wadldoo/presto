@@ -5,13 +5,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static java.util.Locale.ENGLISH;
 
 public class ElasticsearchTable
 {
@@ -24,19 +24,11 @@ public class ElasticsearchTable
     @JsonCreator
     public ElasticsearchTable(
             @JsonProperty("name") String name,
-            @JsonProperty("columns") List<ElasticsearchColumn> columns,
             @JsonProperty("sources") List<ElasticsearchTableSource> sources)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
-        this.name = checkNotNull(name, "name is null");
-        this.columns = ImmutableList.copyOf(checkNotNull(columns, "columns is null"));
+        this.name = checkNotNull(name.toLowerCase(ENGLISH), "name is null");
         this.sources = ImmutableList.copyOf(checkNotNull(sources, "sources is null"));
-
-        ImmutableList.Builder<ElasticsearchColumnMetadata> columnsMetadata = ImmutableList.builder();
-        for (ElasticsearchColumn column : this.columns) {
-            columnsMetadata.add(new ElasticsearchColumnMetadata(column.getName(), column.getType(), column.getJsonPath(), column.getJsonType(), false));
-        }
-        this.columnsMetadata = columnsMetadata.build();
     }
 
     @JsonProperty
@@ -51,7 +43,8 @@ public class ElasticsearchTable
         return columns;
     }
 
-    public void setColumns(List<ElasticsearchColumn> columns) {
+    public void setColumns(List<ElasticsearchColumn> columns)
+    {
         this.columns = columns;
     }
 
@@ -72,7 +65,8 @@ public class ElasticsearchTable
         return new ArrayList<>(columnsMetadata);
     }
 
-    public void setColumnsMetadata(List<ElasticsearchColumnMetadata> columnsMetadata) {
+    public void setColumnsMetadata(List<ElasticsearchColumnMetadata> columnsMetadata)
+    {
         this.columnsMetadata = columnsMetadata;
     }
 }
