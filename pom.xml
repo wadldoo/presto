@@ -908,34 +908,34 @@
                 </executions>
             </plugin>
 
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>2.16</version>
-                <executions>
-                    <execution>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <configuration>
-                            <skip>${air.check.skip-checkstyle}</skip>
-                            <failOnViolation>${air.check.fail-checkstyle}</failOnViolation>
-                            <consoleOutput>true</consoleOutput>
-                            <includeTestSourceDirectory>true</includeTestSourceDirectory>
-                            <configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>
-                            <excludes>**/com/facebook/presto/operator/PagesIndexOrdering.java</excludes>
-                        </configuration>
-                    </execution>
-                </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.puppycrawl.tools</groupId>
-                        <artifactId>checkstyle</artifactId>
-                        <version>6.11.1</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
+            <!--<plugin>-->
+                <!--<groupId>org.apache.maven.plugins</groupId>-->
+                <!--<artifactId>maven-checkstyle-plugin</artifactId>-->
+                <!--<version>2.16</version>-->
+                <!--<executions>-->
+                    <!--<execution>-->
+                        <!--<phase>validate</phase>-->
+                        <!--<goals>-->
+                            <!--<goal>check</goal>-->
+                        <!--</goals>-->
+                        <!--<configuration>-->
+                            <!--<skip>${air.check.skip-checkstyle}</skip>-->
+                            <!--<failOnViolation>${air.check.fail-checkstyle}</failOnViolation>-->
+                            <!--<consoleOutput>true</consoleOutput>-->
+                            <!--<includeTestSourceDirectory>true</includeTestSourceDirectory>-->
+                            <!--<configLocation>${air.main.basedir}/src/checkstyle/checks.xml</configLocation>-->
+                            <!--<excludes>**/com/facebook/presto/operator/PagesIndexOrdering.java</excludes>-->
+                        <!--</configuration>-->
+                    <!--</execution>-->
+                <!--</executions>-->
+                <!--<dependencies>-->
+                    <!--<dependency>-->
+                        <!--<groupId>com.puppycrawl.tools</groupId>-->
+                        <!--<artifactId>checkstyle</artifactId>-->
+                        <!--<version>6.11.1</version>-->
+                    <!--</dependency>-->
+                <!--</dependencies>-->
+            <!--</plugin>-->
 
             <plugin>
                 <groupId>io.takari.maven.plugins</groupId>
