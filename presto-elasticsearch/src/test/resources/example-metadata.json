@@ -1,0 +1,15 @@
+{
+    "be": [
+        {
+            "name": "fancyPantsTable",
+            "sources": [
+                {
+                    "hostaddress": "172.17.42.1",
+                    "port": 9300,
+                    "clusterName": "es-routes",
+                    "type": "route"
+                }
+            ]
+        }
+    ]
+}
