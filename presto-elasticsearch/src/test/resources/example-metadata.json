@@ -1,25 +1,12 @@
 {
-    "es_schema1": [
+    "be": [
         {
             "name": "fancyPantsTable",
             "sources": [
                 {
-                    "hostAddress": "172.17.42.1",
+                    "hostaddress": "172.17.42.1",
                     "port": 9300,
-                    "clusterName": "elasticsearch",
-                    "type": "route"
-                }
-            ]
-        }
-    ],
-    "es_schema2": [
-        {
-            "name": "fancyPantsTable",
-            "sources": [
-                {
-                    "hostAddress": "172.17.42.1",
-                    "port": 9300,
-                    "clusterName": "elasticsearch",
+                    "clusterName": "es-routes",
                     "type": "route"
                 }
             ]
