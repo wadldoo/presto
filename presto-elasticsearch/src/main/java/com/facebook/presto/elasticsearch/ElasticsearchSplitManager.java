@@ -4,12 +4,13 @@ package com.facebook.presto.elasticsearch;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.ConnectorPartitionResult;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorSplitManager;
 import com.facebook.presto.spi.ConnectorSplitSource;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.FixedSplitSource;
-import com.facebook.presto.spi.TupleDomain;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.collect.ImmutableList;
 
 import javax.inject.Inject;
@@ -38,7 +39,11 @@ public class ElasticsearchSplitManager
         }
 
         @Override
-        public ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
+        public ConnectorPartitionResult getPartitions(ConnectorSession session, ConnectorTableHandle table, TupleDomain<ColumnHandle> tupleDomain) {
+                return getPartitions(table, tupleDomain);
+        }
+
+        private ConnectorPartitionResult getPartitions(ConnectorTableHandle tableHandle, TupleDomain<ColumnHandle> tupleDomain)
         {
                 ElasticsearchTableHandle elasticsearchTableHandle = checkType(tableHandle, ElasticsearchTableHandle.class, "tableHandle");
 
@@ -48,7 +53,12 @@ public class ElasticsearchSplitManager
                 return new ConnectorPartitionResult(partitions, tupleDomain);
         }
 
+
         @Override
+        public ConnectorSplitSource getPartitionSplits(ConnectorSession session, ConnectorTableHandle table, List<ConnectorPartition> partitions) {
+                return getPartitionSplits(table, partitions);
+        }
+
         public ConnectorSplitSource getPartitionSplits(ConnectorTableHandle tableHandle, List<ConnectorPartition> partitions)
         {
                 checkNotNull(partitions, "partitions is null");

@@ -3,6 +3,7 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorRecordSetProvider;
+import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.RecordSet;
 import com.google.common.collect.ImmutableList;
@@ -27,7 +28,11 @@ public class ElasticsearchRecordSetProvider
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
+    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns) {
+        return getRecordSet(split, columns);
+    }
+
+    private RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
         checkNotNull(split, "partitionChunk is null");
         ElasticsearchSplit elasticsearchSplit = checkType(split, ElasticsearchSplit.class, "split");

@@ -98,6 +98,7 @@
         <module>presto-docs</module>
         <module>presto-verifier</module>
         <module>presto-testing-server-launcher</module>
+        <module>presto-elasticsearch</module>
     </modules>
 
     <dependencyManagement>
@@ -129,6 +130,13 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-hive-cdh4</artifactId>
+                <version>${project.version}</version>
+                <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-elasticsearch</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
             </dependency>
