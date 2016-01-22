@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.ColumnHandle;
@@ -6,7 +5,7 @@ import com.facebook.presto.spi.ConnectorPartition;
 import com.facebook.presto.spi.predicate.TupleDomain;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchPartition
         implements ConnectorPartition
@@ -16,8 +15,8 @@ public class ElasticsearchPartition
 
     public ElasticsearchPartition(String schemaName, String tableName)
     {
-        this.schemaName = checkNotNull(schemaName, "schema name is null");
-        this.tableName = checkNotNull(tableName, "table name is null");
+        this.schemaName = requireNonNull(schemaName, "schema name is null");
+        this.tableName = requireNonNull(tableName, "table name is null");
     }
 
     @Override

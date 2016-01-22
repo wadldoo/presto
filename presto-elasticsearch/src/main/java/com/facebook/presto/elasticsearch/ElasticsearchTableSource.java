@@ -3,11 +3,10 @@ package com.facebook.presto.elasticsearch;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchTableSource
 {
-
     private String hostaddress;
     private int port;
     private String clusterName;
@@ -22,11 +21,11 @@ public class ElasticsearchTableSource
             @JsonProperty("index") String index,
             @JsonProperty("type") String type)
     {
-        this.hostaddress = checkNotNull(hostaddress, "hostaddress is null");
-        this.port = checkNotNull(port, "port is null");
-        this.clusterName = checkNotNull(clusterName, "clusterName is null");
+        this.hostaddress = requireNonNull(hostaddress, "hostaddress is null");
+        this.port = requireNonNull(port, "port is null");
+        this.clusterName = requireNonNull(clusterName, "clusterName is null");
         this.index = index;
-        this.type = checkNotNull(type, "type is null");
+        this.type = requireNonNull(type, "type is null");
     }
 
     @JsonProperty
