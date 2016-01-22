@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.RecordCursor;
@@ -6,7 +5,6 @@ import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Strings;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
@@ -161,7 +159,7 @@ public class ElasticsearchRecordCursor
     {
     }
 
-    String[] getIndices(Client client, String  type)
+    String[] getIndices(Client client, String type)
     {
         return Arrays.asList(client
                 .admin()
@@ -192,7 +190,6 @@ public class ElasticsearchRecordCursor
                 .put("cluster.name", tableSource.getClusterName())
                 .build();
         try (Client client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(hostaddress, port))) {
-
             SearchResponse scrollResp = client
                     .prepareSearch(getIndices(client, type))
                     .setTypes(tableSource.getType())
@@ -204,7 +201,6 @@ public class ElasticsearchRecordCursor
 
             //Scroll until no hits are returned
             while (true) {
-
                 for (SearchHit hit : scrollResp.getHits().getHits()) {
                     result.add(hit);
                 }

@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.Connector;
@@ -13,7 +12,6 @@ import io.airlift.json.JsonModule;
 
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchConnectorFactory
