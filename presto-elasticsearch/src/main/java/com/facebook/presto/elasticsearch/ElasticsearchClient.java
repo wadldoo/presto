@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Resources;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import org.elasticsearch.action.admin.indices.mapping.get.GetMappingsRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
@@ -48,6 +49,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchClient
 {
+    private static final Logger log = Logger.get(ElasticsearchClient.class);
     /**
      * SchemaName -> (TableName -> TableMetadata)
      */
@@ -127,12 +129,12 @@ public class ElasticsearchClient
         String index = src.getIndex();
         String type = src.getType();
 
-        System.out.println("connecting ....");
-        System.out.println("hostaddress :" + hostaddress);
-        System.out.println("port :" + port);
-        System.out.println("clusterName :" + clusterName);
-        System.out.println("index :" + index);
-        System.out.println("type :" + type);
+        log.debug("connecting ....");
+        log.debug("hostaddress :" + hostaddress);
+        log.debug("port :" + port);
+        log.debug("clusterName :" + clusterName);
+        log.debug("index :" + index);
+        log.debug("type :" + type);
 
         Settings settings = ImmutableSettings.settingsBuilder()
                 .put("cluster.name", clusterName)
@@ -216,16 +218,16 @@ public class ElasticsearchClient
         Type prestoType;
 
         if (items.length != 2) {
-            System.out.println("Invalid column path format. Ignoring...");
+            log.error("Invalid column path format. Ignoring...");
             return null;
         }
         if (!path.endsWith(".type")) {
-            System.out.println("Invalid column has no type info. Ignoring...");
+            log.error("Invalid column has no type info. Ignoring...");
             return null;
         }
 
         if (path.contains(".properties.")) {
-            System.out.println("Invalid complex column type. Ignoring...");
+            log.error("Invalid complex column type. Ignoring...");
             return null;
         }
 
@@ -242,7 +244,7 @@ public class ElasticsearchClient
                 prestoType = VARCHAR;
                 break;
             default:
-                System.out.println("Unsupported column type. Ignoring...");
+                log.error("Unsupported column type. Ignoring...");
                 return null;
         }
 
@@ -279,10 +281,10 @@ public class ElasticsearchClient
             throws IOException
     {
         URL url = metadataUri.toURL();
-        System.out.println("url: " + url);
+        log.debug("url: " + url);
 
         String tableMappings = Resources.toString(url, UTF_8);
-        System.out.println("tableMappings: " + tableMappings);
+        log.debug("tableMappings: " + tableMappings);
 
         Map<String, List<ElasticsearchTable>> catalog = catalogCodec.fromJson(tableMappings);
 
