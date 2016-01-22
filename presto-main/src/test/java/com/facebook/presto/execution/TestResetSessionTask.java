@@ -16,8 +16,10 @@ package com.facebook.presto.execution;
 import com.facebook.presto.Session;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.ResetSession;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.testng.annotations.AfterClass;
@@ -29,7 +31,9 @@ import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -65,8 +69,9 @@ public class TestResetSessionTask
     {
         Session session = TEST_SESSION.withSystemProperty("foo", "bar").withCatalogProperty("catalog", "baz", "blah");
 
-        QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "reset foo", session, URI.create("fake://uri"), executor);
-        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), session, metadata, new AllowAllAccessControl(), stateMachine);
+        TransactionManager transactionManager = createTestTransactionManager();
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "reset foo", session, URI.create("fake://uri"), false, transactionManager, executor);
+        new ResetSessionTask().execute(new ResetSession(QualifiedName.of("catalog", "baz")), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
         assertEquals(sessionProperties, ImmutableSet.of("catalog.baz"));

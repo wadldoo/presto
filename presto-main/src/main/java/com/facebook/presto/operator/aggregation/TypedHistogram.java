@@ -13,20 +13,19 @@
  */
 package com.facebook.presto.operator.aggregation;
 
+import com.facebook.presto.array.IntBigArray;
+import com.facebook.presto.array.LongBigArray;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.block.BlockBuilder;
 import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.InterleavedBlockBuilder;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.type.TypeUtils;
-import com.facebook.presto.util.array.IntBigArray;
-import com.facebook.presto.util.array.LongBigArray;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 
 import static com.facebook.presto.ExceededMemoryLimitException.exceededLocalLimit;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
-import static com.facebook.presto.type.TypeUtils.expectedValueSize;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
@@ -57,7 +56,7 @@ public class TypedHistogram
 
         maxFill = calculateMaxFill(hashSize);
         mask = hashSize - 1;
-        values = this.type.createBlockBuilder(new BlockBuilderStatus(), hashSize, expectedValueSize(type, hashSize));
+        values = this.type.createBlockBuilder(new BlockBuilderStatus(), hashSize);
         hashPositions = new IntBigArray(-1);
         hashPositions.ensureCapacity(hashSize);
         counts = new LongBigArray();

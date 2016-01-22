@@ -14,12 +14,13 @@
 package com.facebook.presto.benchmark;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.metadata.InMemoryNodeManager;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.testing.LocalQueryRunner;
 import com.facebook.presto.tpch.TpchConnectorFactory;
 import com.google.common.collect.ImmutableMap;
 
 import static com.facebook.presto.Session.SessionBuilder;
+import static com.facebook.presto.testing.LocalQueryRunner.queryRunnerWithInitialTransaction;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 
@@ -49,11 +50,11 @@ public final class BenchmarkQueryRunner
         }
 
         Session session = sessionBuilder.build();
-        LocalQueryRunner localQueryRunner = new LocalQueryRunner(session);
+        LocalQueryRunner localQueryRunner = queryRunnerWithInitialTransaction(session);
 
         // add tpch
-        InMemoryNodeManager nodeManager = localQueryRunner.getNodeManager();
-        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(nodeManager, 1), ImmutableMap.<String, String>of());
+        NodeManager nodeManager = localQueryRunner.getNodeManager();
+        localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.<String, String>of());
 
         return localQueryRunner;
     }

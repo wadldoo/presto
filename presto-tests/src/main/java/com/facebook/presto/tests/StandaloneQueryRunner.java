@@ -14,6 +14,7 @@
 package com.facebook.presto.tests;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.AllNodes;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.QualifiedObjectName;
@@ -21,12 +22,13 @@ import com.facebook.presto.metadata.SessionPropertyManager;
 import com.facebook.presto.server.testing.TestingPrestoServer;
 import com.facebook.presto.spi.Node;
 import com.facebook.presto.spi.Plugin;
+import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.MaterializedResult;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Module;
 import io.airlift.testing.Closeables;
 import org.intellij.lang.annotations.Language;
 
@@ -117,6 +119,12 @@ public final class StandaloneQueryRunner
     }
 
     @Override
+    public TransactionManager getTransactionManager()
+    {
+        return server.getTransactionManager();
+    }
+
+    @Override
     public Metadata getMetadata()
     {
         return server.getMetadata();
@@ -150,7 +158,7 @@ public final class StandaloneQueryRunner
         while (allNodes.getActiveNodes().isEmpty());
     }
 
-    private void refreshNodes(String catalogName)
+    private void refreshNodes(ConnectorId connectorId)
     {
         Set<Node> activeNodesWithConnector;
 
@@ -162,7 +170,7 @@ public final class StandaloneQueryRunner
                 Thread.currentThread().interrupt();
                 break;
             }
-            activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
+            activeNodesWithConnector = server.getActiveNodesWithConnector(connectorId);
         }
         while (activeNodesWithConnector.isEmpty());
     }
@@ -179,9 +187,9 @@ public final class StandaloneQueryRunner
 
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        server.createCatalog(catalogName, connectorName, properties);
+        ConnectorId connectorId = server.createCatalog(catalogName, connectorName, properties);
 
-        refreshNodes(catalogName);
+        refreshNodes(connectorId);
     }
 
     @Override
@@ -224,6 +232,6 @@ public final class StandaloneQueryRunner
                 .put("node-scheduler.min-candidates", "1")
                 .put("datasources", "system");
 
-        return new TestingPrestoServer(true, properties.build(), null, null, ImmutableList.<Module>of());
+        return new TestingPrestoServer(true, properties.build(), null, null, new SqlParserOptions(), ImmutableList.of());
     }
 }

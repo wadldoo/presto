@@ -14,11 +14,12 @@
 package com.facebook.presto.split;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.InsertTableHandle;
 import com.facebook.presto.metadata.OutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -28,9 +29,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 public class PageSinkManager
         implements PageSinkProvider
 {
-    private final ConcurrentMap<String, ConnectorPageSinkProvider> pageSinkProviders = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ConnectorId, ConnectorPageSinkProvider> pageSinkProviders = new ConcurrentHashMap<>();
 
-    public void addConnectorPageSinkProvider(String connectorId, ConnectorPageSinkProvider connectorPageSinkProvider)
+    public void addConnectorPageSinkProvider(ConnectorId connectorId, ConnectorPageSinkProvider connectorPageSinkProvider)
     {
         pageSinkProviders.put(connectorId, connectorPageSinkProvider);
     }
@@ -40,7 +41,7 @@ public class PageSinkManager
     {
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(connectorSession, tableHandle.getConnectorHandle());
+        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
     }
 
     @Override
@@ -48,10 +49,10 @@ public class PageSinkManager
     {
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getConnectorId());
-        return providerFor(tableHandle.getConnectorId()).createPageSink(connectorSession, tableHandle.getConnectorHandle());
+        return providerFor(tableHandle.getConnectorId()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
     }
 
-    private ConnectorPageSinkProvider providerFor(String connectorId)
+    private ConnectorPageSinkProvider providerFor(ConnectorId connectorId)
     {
         ConnectorPageSinkProvider provider = pageSinkProviders.get(connectorId);
         checkArgument(provider != null, "No page sink provider for connector '%s'", connectorId);

@@ -15,23 +15,30 @@ package com.facebook.presto.execution;
 
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.tree.Expression;
 import com.facebook.presto.sql.tree.FunctionCall;
+import com.facebook.presto.sql.tree.Parameter;
 import com.facebook.presto.sql.tree.QualifiedName;
 import com.facebook.presto.sql.tree.SetSession;
 import com.facebook.presto.sql.tree.StringLiteral;
+import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static com.facebook.presto.SessionTestUtils.TEST_SESSION;
 import static com.facebook.presto.spi.session.PropertyMetadata.stringSessionProperty;
+import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
 
@@ -67,16 +74,33 @@ public class TestSetSessionTask
             throws Exception
     {
         testSetSession(new StringLiteral("baz"), "baz");
-        testSetSession(new FunctionCall(new QualifiedName("concat"), ImmutableList.of(
+        testSetSession(new FunctionCall(QualifiedName.of("concat"), ImmutableList.of(
                 new StringLiteral("ban"),
                 new StringLiteral("ana"))), "banana");
+    }
+
+    @Test
+    public void testSetSessionWithParameters()
+            throws Exception
+    {
+        List<Expression> expressionList = new ArrayList<>();
+        expressionList.add(new StringLiteral("ban"));
+        expressionList.add(new Parameter(0));
+        testSetSessionWithParameters(new FunctionCall(QualifiedName.of("concat"), expressionList), "banana", ImmutableList.of(new StringLiteral("ana")));
     }
 
     private void testSetSession(Expression expression, String expectedValue)
             throws Exception
     {
-        QueryStateMachine stateMachine = new QueryStateMachine(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), executor);
-        new SetSessionTask().execute(new SetSession(QualifiedName.of("foo", "bar"), expression), TEST_SESSION, metadata, new AllowAllAccessControl(), stateMachine);
+        testSetSessionWithParameters(expression, expectedValue, emptyList());
+    }
+
+    private void testSetSessionWithParameters(Expression expression, String expectedValue, List<Expression> parameters)
+            throws Exception
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "set foo.bar = 'baz'", TEST_SESSION, URI.create("fake://uri"), false, transactionManager, executor);
+        new SetSessionTask().execute(new SetSession(QualifiedName.of("foo", "bar"), expression), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, parameters).join();
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();
         assertEquals(sessionProperties, ImmutableMap.of("foo.bar", expectedValue));
