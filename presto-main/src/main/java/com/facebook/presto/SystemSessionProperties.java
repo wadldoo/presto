@@ -47,11 +47,13 @@ public final class SystemSessionProperties
     public static final String TASK_SHARE_INDEX_LOADING = "task_share_index_loading";
     public static final String QUERY_MAX_MEMORY = "query_max_memory";
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
+    public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String COLUMNAR_PROCESSING = "columnar_processing";
     public static final String COLUMNAR_PROCESSING_DICTIONARY = "columnar_processing_dictionary";
+    public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -160,6 +162,11 @@ public final class SystemSessionProperties
                         true,
                         value -> DataSize.valueOf((String) value)),
                 booleanSessionProperty(
+                        RESOURCE_OVERCOMMIT,
+                        "Use resources which are not guaranteed to be available to the query",
+                        false,
+                        false),
+                booleanSessionProperty(
                         COLUMNAR_PROCESSING,
                         "Use columnar processing",
                         featuresConfig.isColumnarProcessing(),
@@ -168,6 +175,11 @@ public final class SystemSessionProperties
                         COLUMNAR_PROCESSING_DICTIONARY,
                         "Use columnar processing with optimizations for dictionaries",
                         featuresConfig.isColumnarProcessingDictionary(),
+                        false),
+                booleanSessionProperty(
+                        DICTIONARY_AGGREGATION,
+                        "Enable optimization for aggregations on dictionaries",
+                        featuresConfig.isDictionaryAggregation(),
                         false));
     }
 
@@ -256,6 +268,11 @@ public final class SystemSessionProperties
         return session.getProperty(COLUMNAR_PROCESSING_DICTIONARY, Boolean.class);
     }
 
+    public static boolean isDictionaryAggregationEnabled(Session session)
+    {
+        return session.getProperty(DICTIONARY_AGGREGATION, Boolean.class);
+    }
+
     public static DataSize getQueryMaxMemory(Session session)
     {
         return session.getProperty(QUERY_MAX_MEMORY, DataSize.class);
@@ -264,6 +281,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxRunTime(Session session)
     {
         return session.getProperty(QUERY_MAX_RUN_TIME, Duration.class);
+    }
+
+    public static boolean resourceOvercommit(Session session)
+    {
+        return session.getProperty(RESOURCE_OVERCOMMIT, Boolean.class);
     }
 
     private static <T> T getPropertyOr(Session session, String propertyName, String defaultPropertyName, Class<T> type)

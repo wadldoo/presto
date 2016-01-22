@@ -29,12 +29,9 @@ import java.util.Map;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tests.QueryAssertions.copyTpchTables;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.airlift.tpch.TpchTable.getTables;
 
 public final class RaptorQueryRunner
 {
-    private static final Logger log = Logger.get(RaptorQueryRunner.class);
-
     private RaptorQueryRunner() {}
 
     public static DistributedQueryRunner createRaptorQueryRunner(TpchTable<?>... tables)
@@ -46,7 +43,13 @@ public final class RaptorQueryRunner
     public static DistributedQueryRunner createRaptorQueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2);
+        return createRaptorQueryRunner(ImmutableMap.of(), ImmutableList.copyOf(tables));
+    }
+
+    public static DistributedQueryRunner createRaptorQueryRunner(Map<String, String> extraProperties, Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = new DistributedQueryRunner(createSession("tpch"), 2, extraProperties);
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
@@ -88,7 +91,7 @@ public final class RaptorQueryRunner
         return testSessionBuilder()
                 .setCatalog("raptor")
                 .setSchema(schema)
-                .setSystemProperties(ImmutableMap.of("columnar_processing_dictionary", "true"))
+                .setSystemProperties(ImmutableMap.of("columnar_processing_dictionary", "true", "dictionary_aggregation", "true"))
                 .build();
     }
 
@@ -96,7 +99,7 @@ public final class RaptorQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createRaptorQueryRunner(getTables());
+        DistributedQueryRunner queryRunner = createRaptorQueryRunner(ImmutableMap.of("http-server.http.port", "8080"), ImmutableList.of());
         Thread.sleep(10);
         Logger log = Logger.get(RaptorQueryRunner.class);
         log.info("======== SERVER STARTED ========");
