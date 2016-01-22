@@ -314,13 +314,14 @@ public class TestJsonExtract
         assertInvalidExtract("", "$$", "Invalid JSON path: '$$'");
         assertInvalidExtract("", " ", "Invalid JSON path: ' '");
         assertInvalidExtract("", ".", "Invalid JSON path: '.'");
+        assertInvalidExtract("{ \"store\": { \"book\": [{ \"title\": \"title\" }] } }", "$.store.book[", "Invalid JSON path: '$.store.book['");
     }
 
     private static String doExtract(JsonExtractor<Slice> jsonExtractor, String json)
             throws IOException
     {
         JsonFactory jsonFactory = new JsonFactory();
-        JsonParser jsonParser = jsonFactory.createJsonParser(json);
+        JsonParser jsonParser = jsonFactory.createParser(json);
         jsonParser.nextToken(); // Advance to the first token
         Slice extract = jsonExtractor.extract(jsonParser);
         return (extract == null) ? null : extract.toStringUtf8();

@@ -1,0 +1,12 @@
+databases:
+  hive:
+    host: hadoop-master
+  presto:
+    host: presto-master
+    configured_hdfs_user: hive
+  cassandra:
+    host: cassandra
+    port: 9042
+    default_schema: test
+    skip_create_schema: false
+    table_manager_type: cassandra

@@ -13,28 +13,41 @@
  */
 package com.facebook.presto.operator.aggregation;
 
-import com.facebook.presto.operator.aggregation.state.AccumulatorStateSerializer;
 import com.facebook.presto.operator.aggregation.state.HyperLogLogState;
 import com.facebook.presto.operator.aggregation.state.StateCompiler;
 import com.facebook.presto.spi.block.BlockBuilder;
+import com.facebook.presto.spi.function.AccumulatorStateSerializer;
+import com.facebook.presto.spi.function.AggregationFunction;
+import com.facebook.presto.spi.function.CombineFunction;
+import com.facebook.presto.spi.function.InputFunction;
+import com.facebook.presto.spi.function.OutputFunction;
+import com.facebook.presto.spi.function.SqlType;
 import com.facebook.presto.spi.type.StandardTypes;
-import com.facebook.presto.type.SqlType;
 import io.airlift.slice.Slice;
 import io.airlift.stats.cardinality.HyperLogLog;
 
 @AggregationFunction("merge")
 public final class MergeHyperLogLogAggregation
 {
-    private static final AccumulatorStateSerializer<HyperLogLogState> serializer = new StateCompiler().generateStateSerializer(HyperLogLogState.class);
+    private static final AccumulatorStateSerializer<HyperLogLogState> serializer = StateCompiler.generateStateSerializer(HyperLogLogState.class);
 
     private MergeHyperLogLogAggregation() {}
 
     @InputFunction
-    @IntermediateInputFunction
-    public static void merge(HyperLogLogState state, @SqlType(StandardTypes.HYPER_LOG_LOG) Slice value)
+    public static void input(HyperLogLogState state, @SqlType(StandardTypes.HYPER_LOG_LOG) Slice value)
     {
         HyperLogLog input = HyperLogLog.newInstance(value);
+        merge(state, input);
+    }
 
+    @CombineFunction
+    public static void combine(HyperLogLogState state, HyperLogLogState otherState)
+    {
+        merge(state, otherState.getHyperLogLog());
+    }
+
+    private static void merge(HyperLogLogState state, HyperLogLog input)
+    {
         HyperLogLog previous = state.getHyperLogLog();
         if (previous == null) {
             state.setHyperLogLog(input);
