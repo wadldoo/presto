@@ -3,6 +3,7 @@ package com.facebook.presto.elasticsearch;
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.base.Strings;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.elasticsearch.action.search.SearchResponse;
@@ -34,6 +35,7 @@ import static com.google.common.base.Preconditions.checkState;
 public class ElasticsearchRecordCursor
         implements RecordCursor
 {
+    private static final Logger log = Logger.get(ElasticsearchRecordCursor.class);
     private final List<ElasticsearchColumnHandle> columnHandles;
     private final Map<String, Integer> jsonPathToIndex;
     private final Iterator<SearchHit> lines;
@@ -182,9 +184,9 @@ public class ElasticsearchRecordCursor
         String hostaddress = tableSource.getHostaddress();
         String type = tableSource.getType();
 
-        System.out.println("type :" + type);
-        System.out.println("hostaddress :" + hostaddress);
-        System.out.println("port :" + port);
+        log.debug("type :" + type);
+        log.debug("hostaddress :" + hostaddress);
+        log.debug("port :" + port);
 
         Settings settings = ImmutableSettings.settingsBuilder()
                 .put("cluster.name", tableSource.getClusterName())
