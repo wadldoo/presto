@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.ConnectorFactory;
@@ -6,8 +5,6 @@ import com.facebook.presto.spi.Plugin;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
 
 import javax.inject.Inject;
 

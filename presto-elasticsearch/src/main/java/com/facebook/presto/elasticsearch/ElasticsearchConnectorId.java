@@ -1,9 +1,8 @@
-
 package com.facebook.presto.elasticsearch;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public final class ElasticsearchConnectorId
 {
@@ -11,7 +10,7 @@ public final class ElasticsearchConnectorId
 
     public ElasticsearchConnectorId(String id)
     {
-        this.id = checkNotNull(id, "id is null");
+        this.id = requireNonNull(id, "id is null");
     }
 
     @Override

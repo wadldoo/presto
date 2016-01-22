@@ -1,18 +1,13 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.RecordSet;
 import com.facebook.presto.spi.type.Type;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteSource;
-import com.google.common.io.Resources;
 
-import java.net.MalformedURLException;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchRecordSet
         implements RecordSet
@@ -22,12 +17,11 @@ public class ElasticsearchRecordSet
     //private final ByteSource byteSource;
     private final ElasticsearchTableSource tableSource;
 
-
     public ElasticsearchRecordSet(ElasticsearchSplit split, List<ElasticsearchColumnHandle> columnHandles)
     {
-        checkNotNull(split, "split is null");
+        requireNonNull(split, "split is null");
 
-        this.columnHandles = checkNotNull(columnHandles, "column handles is null");
+        this.columnHandles = requireNonNull(columnHandles, "column handles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (ElasticsearchColumnHandle column : columnHandles) {
             types.add(column.getColumnType());
