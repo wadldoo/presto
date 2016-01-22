@@ -20,11 +20,10 @@ import com.google.inject.Inject;
 import com.google.inject.Module;
 import com.google.inject.PrivateModule;
 import com.google.inject.Provides;
-import com.google.inject.Singleton;
 import com.teradata.tempto.configuration.Configuration;
 import com.teradata.tempto.initialization.AutoModuleProvider;
 import com.teradata.tempto.initialization.SuiteModuleProvider;
-import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.ObjectMapperProvider;
 
@@ -36,6 +35,8 @@ import java.net.URI;
 public class QueryStatsClientModuleProvider
         implements SuiteModuleProvider
 {
+    private static HttpQueryStatsClient httpQueryStatsClient;
+
     @Override
     public Module getModule(Configuration configuration)
     {
@@ -45,16 +46,21 @@ public class QueryStatsClientModuleProvider
             protected void configure()
             {
                 bind(ObjectMapper.class).toProvider(ObjectMapperProvider.class);
-                bind(HttpClient.class).toInstance(new JettyHttpClient());
             }
 
             @Inject
             @Provides
             @Exposed
-            @Singleton
-            QueryStatsClient getQueryStatsClient(HttpClient httpClient, ObjectMapper objectMapper, @Named("presto_rest.base_uri") String prestoRestInterfaceBaseUri)
+            QueryStatsClient getQueryStatsClient(ObjectMapper objectMapper, @Named("databases.presto.server_address") String serverAddress)
             {
-                return new HttpQueryStatsClient(httpClient, objectMapper, URI.create(prestoRestInterfaceBaseUri));
+                // @Singleton does not work due: https://github.com/prestodb/tempto/issues/94
+                if (httpQueryStatsClient == null) {
+                    HttpClientConfig httpClientConfig = new HttpClientConfig();
+                    httpClientConfig.setKeyStorePath(configuration.getString("databases.presto.https_keystore_path").orElse(null));
+                    httpClientConfig.setKeyStorePassword(configuration.getString("databases.presto.https_keystore_password").orElse(null));
+                    httpQueryStatsClient = new HttpQueryStatsClient(new JettyHttpClient(httpClientConfig), objectMapper, URI.create(serverAddress));
+                }
+                return httpQueryStatsClient;
             }
         };
     }

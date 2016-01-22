@@ -17,6 +17,7 @@ import com.facebook.presto.sql.tree.AliasedRelation;
 import com.facebook.presto.sql.tree.AllColumns;
 import com.facebook.presto.sql.tree.ArithmeticBinaryExpression;
 import com.facebook.presto.sql.tree.AstVisitor;
+import com.facebook.presto.sql.tree.BinaryLiteral;
 import com.facebook.presto.sql.tree.BooleanLiteral;
 import com.facebook.presto.sql.tree.ComparisonExpression;
 import com.facebook.presto.sql.tree.Cube;
@@ -120,9 +121,14 @@ public class TreePrinter
                     process(node.getWhere().get(), indentLevel + 1);
                 }
 
-                if (!node.getGroupBy().isEmpty()) {
-                    for (GroupingElement groupingElement : node.getGroupBy()) {
-                        print(indentLevel, "GroupBy");
+                if (node.getGroupBy().isPresent()) {
+                    String distinct = "";
+                    if (node.getGroupBy().get().isDistinct()) {
+                        distinct = "[DISTINCT]";
+                    }
+                    print(indentLevel, "GroupBy" + distinct);
+                    for (GroupingElement groupingElement : node.getGroupBy().get().getGroupingElements()) {
+                        print(indentLevel, "SimpleGroupBy");
                         if (groupingElement instanceof SimpleGroupBy) {
                             for (Expression column : ((SimpleGroupBy) groupingElement).getColumnExpressions()) {
                                 process(column, indentLevel + 1);
@@ -249,6 +255,13 @@ public class TreePrinter
             }
 
             @Override
+            protected Void visitBinaryLiteral(BinaryLiteral node, Integer indentLevel)
+            {
+                print(indentLevel, "Binary[" + node.toHexString() + "]");
+                return null;
+            }
+
+            @Override
             protected Void visitBooleanLiteral(BooleanLiteral node, Integer indentLevel)
             {
                 print(indentLevel, "Boolean[" + node.getValue() + "]");
@@ -349,12 +362,7 @@ public class TreePrinter
             @Override
             protected Void visitSampledRelation(SampledRelation node, Integer indentLevel)
             {
-                String stratifyOn = "";
-                if (node.getColumnsToStratifyOn().isPresent()) {
-                    stratifyOn = " STRATIFY ON (" + node.getColumnsToStratifyOn().get().toString() + ")";
-                }
-
-                print(indentLevel, "TABLESAMPLE[" + node.getType() + " (" + node.getSamplePercentage() + ")" + stratifyOn + "]");
+                print(indentLevel, "TABLESAMPLE[" + node.getType() + " (" + node.getSamplePercentage() + ")]");
 
                 super.visitSampledRelation(node, indentLevel + 1);
 
