@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import io.airlift.configuration.Config;
@@ -23,5 +22,4 @@ public class ElasticsearchConfig
         this.metadata = metadata;
         return this;
     }
-
 }

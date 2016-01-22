@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.ColumnHandle;
@@ -14,7 +13,7 @@ import java.util.List;
 
 import static com.facebook.presto.elasticsearch.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchRecordSetProvider
         implements ConnectorRecordSetProvider
@@ -24,17 +23,18 @@ public class ElasticsearchRecordSetProvider
     @Inject
     public ElasticsearchRecordSetProvider(ElasticsearchConnectorId connectorId)
     {
-        this.connectorId = checkNotNull(connectorId, "connectorId is null").toString();
+        this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns) {
+    public RecordSet getRecordSet(ConnectorSession session, ConnectorSplit split, List<? extends ColumnHandle> columns)
+    {
         return getRecordSet(split, columns);
     }
 
     private RecordSet getRecordSet(ConnectorSplit split, List<? extends ColumnHandle> columns)
     {
-        checkNotNull(split, "partitionChunk is null");
+        requireNonNull(split, "partitionChunk is null");
         ElasticsearchSplit elasticsearchSplit = checkType(split, ElasticsearchSplit.class, "split");
         checkArgument(elasticsearchSplit.getConnectorId().equals(connectorId), "split is not for this connector");
 
