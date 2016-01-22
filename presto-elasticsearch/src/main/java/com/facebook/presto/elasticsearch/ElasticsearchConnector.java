@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.Connector;
@@ -11,7 +10,7 @@ import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchConnector
         implements Connector
@@ -32,11 +31,11 @@ public class ElasticsearchConnector
             ElasticsearchRecordSetProvider recordSetProvider,
             ElasticsearchHandleResolver handleResolver)
     {
-        this.lifeCycleManager = checkNotNull(lifeCycleManager, "lifeCycleManager is null");
-        this.metadata = checkNotNull(metadata, "metadata is null");
-        this.splitManager = checkNotNull(splitManager, "splitManager is null");
-        this.recordSetProvider = checkNotNull(recordSetProvider, "recordSetProvider is null");
-        this.handleResolver = checkNotNull(handleResolver, "handleResolver is null");
+        this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.splitManager = requireNonNull(splitManager, "splitManager is null");
+        this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
     }
 
     @Override

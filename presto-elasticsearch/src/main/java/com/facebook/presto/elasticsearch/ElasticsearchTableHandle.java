@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.ConnectorTableHandle;
@@ -9,8 +8,8 @@ import com.google.common.base.Joiner;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public final class ElasticsearchTableHandle
         implements ConnectorTableHandle
@@ -25,9 +24,9 @@ public final class ElasticsearchTableHandle
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
-        this.connectorId = checkNotNull(connectorId.toLowerCase(ENGLISH), "connectorId is null");
-        this.schemaName = checkNotNull(schemaName.toLowerCase(ENGLISH), "schemaName is null");
-        this.tableName = checkNotNull(tableName.toLowerCase(ENGLISH), "tableName is null");
+        this.connectorId = requireNonNull(connectorId.toLowerCase(ENGLISH), "connectorId is null");
+        this.schemaName = requireNonNull(schemaName.toLowerCase(ENGLISH), "schemaName is null");
+        this.tableName = requireNonNull(tableName.toLowerCase(ENGLISH), "tableName is null");
     }
 
     @JsonProperty

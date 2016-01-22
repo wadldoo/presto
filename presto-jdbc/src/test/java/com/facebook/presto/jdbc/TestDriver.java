@@ -20,7 +20,6 @@ import com.facebook.presto.tpch.TpchPlugin;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logging;
-import java.sql.PreparedStatement;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
@@ -30,6 +29,7 @@ import org.testng.annotations.Test;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -876,11 +876,10 @@ public class TestDriver
 
     @Test
     public void testExecutePreparedWithQuery()
-        throws Exception
+            throws Exception
     {
         try (Connection connection = createConnection()) {
             try (PreparedStatement statement = connection.prepareStatement("SELECT ? as param1StringValue, ? as param2NumberValue")) {
-
                 statement.clearParameters();
                 statement.setObject(1, "foo");
                 statement.setObject(2, 123);
@@ -916,17 +915,16 @@ public class TestDriver
 
     @Test
     public void testExecutePreparedWithQueryWithNullValues()
-        throws Exception
+            throws Exception
     {
-      try (Connection connection = createConnection()) {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT ? as param1StringValue")) {
+        try (Connection connection = createConnection()) {
+            try (PreparedStatement statement = connection.prepareStatement("SELECT ? as param1StringValue")) {
+                statement.clearParameters();
 
-          statement.clearParameters();
-
-          ResultSet rs = statement.executeQuery();
-          assertNotNull(rs);
+                ResultSet rs = statement.executeQuery();
+                assertNotNull(rs);
+            }
         }
-      }
     }
 
     @Test

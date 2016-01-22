@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.ColumnHandle;
@@ -8,7 +7,7 @@ import com.facebook.presto.spi.ConnectorTableHandle;
 
 import javax.inject.Inject;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchHandleResolver
         implements ConnectorHandleResolver
@@ -18,7 +17,7 @@ public class ElasticsearchHandleResolver
     @Inject
     public ElasticsearchHandleResolver(ElasticsearchConnectorId clientId)
     {
-        this.connectorId = checkNotNull(clientId, "clientId is null").toString();
+        this.connectorId = requireNonNull(clientId, "clientId is null").toString();
     }
 
     @Override

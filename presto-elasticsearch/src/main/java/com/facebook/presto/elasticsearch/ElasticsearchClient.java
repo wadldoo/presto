@@ -1,4 +1,3 @@
-
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.type.Type;
@@ -40,12 +39,12 @@ import java.util.stream.Collectors;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.transformValues;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchClient
 {
@@ -60,8 +59,8 @@ public class ElasticsearchClient
     public ElasticsearchClient(ElasticsearchConfig config, JsonCodec<Map<String, List<ElasticsearchTable>>> catalogCodec)
             throws IOException
     {
-        checkNotNull(config, "config is null");
-        checkNotNull(catalogCodec, "catalogCodec is null");
+        requireNonNull(config, "config is null");
+        requireNonNull(catalogCodec, "catalogCodec is null");
 
         this.config = config;
         this.catalogCodec = catalogCodec;
@@ -76,7 +75,7 @@ public class ElasticsearchClient
 
     public Set<String> getTableNames(String schema)
     {
-        checkNotNull(schema, "schema is null");
+        requireNonNull(schema, "schema is null");
         Map<String, ElasticsearchTable> tables = schemas.get().get(schema);
         if (tables == null) {
             return ImmutableSet.of();
@@ -93,8 +92,8 @@ public class ElasticsearchClient
             e.printStackTrace();
         }
 
-        checkNotNull(schema, "schema is null");
-        checkNotNull(tableName, "tableName is null");
+        requireNonNull(schema, "schema is null");
+        requireNonNull(tableName, "tableName is null");
         Map<String, ElasticsearchTable> tables = schemas.get().get(schema.toLowerCase(ENGLISH));
         if (tables == null) {
             return null;
@@ -109,10 +108,8 @@ public class ElasticsearchClient
 
         Map<String, Map<String, ElasticsearchTable>> schemasMap = schemas.get();
         for (Map.Entry<String, Map<String, ElasticsearchTable>> schemaEntry : schemasMap.entrySet()) {
-
             Map<String, ElasticsearchTable> tablesMap = schemaEntry.getValue();
             for (Map.Entry<String, ElasticsearchTable> tableEntry : tablesMap.entrySet()) {
-
                 updateTableColumns(tableEntry.getValue());
             }
         }
@@ -142,7 +139,6 @@ public class ElasticsearchClient
                 .build();
 
         try (Client client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(hostaddress, port))) {
-
             GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(type);
 
             // an index is optional - if no index is configured for the table, it will retrieve all indices for the doc type
@@ -168,7 +164,6 @@ public class ElasticsearchClient
 
         // what makes sense is to get the reunion of all the columns from all the mappings for the specified document type
         for (ObjectCursor<String> currentIndex : allMappings.keys()) {
-
             MappingMetaData mappingMetaData = allMappings.get(currentIndex.value).get(type);
             JSONObject json = new JSONObject(mappingMetaData.source().toString())
                     .getJSONObject(type)
@@ -212,10 +207,10 @@ public class ElasticsearchClient
         return leaves;
     }
 
-    ElasticsearchColumn createColumn(String fieldPath_Type)
+    ElasticsearchColumn createColumn(String fieldPathType)
             throws JSONException, IOException
     {
-        String[] items = fieldPath_Type.split(":");
+        String[] items = fieldPathType.split(":");
         String type = items[1];
         String path = items[0];
         Type prestoType;
@@ -235,7 +230,6 @@ public class ElasticsearchClient
         }
 
         switch (type) {
-
             case "double":
             case "float":
                 prestoType = DOUBLE;
