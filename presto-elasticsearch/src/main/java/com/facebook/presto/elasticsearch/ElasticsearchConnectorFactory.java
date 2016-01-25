@@ -2,6 +2,7 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.Connector;
 import com.facebook.presto.spi.ConnectorFactory;
+import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -32,6 +33,12 @@ public class ElasticsearchConnectorFactory
     public String getName()
     {
         return "elasticsearch";
+    }
+
+    @Override
+    public ConnectorHandleResolver getHandleResolver()
+    {
+        return new ElasticsearchHandleResolver();
     }
 
     @Override

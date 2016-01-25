@@ -4,38 +4,15 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
-
-import javax.inject.Inject;
-
-import static java.util.Objects.requireNonNull;
+import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 
 public class ElasticsearchHandleResolver
         implements ConnectorHandleResolver
 {
-    private final String connectorId;
-
-    @Inject
-    public ElasticsearchHandleResolver(ElasticsearchConnectorId clientId)
-    {
-        this.connectorId = requireNonNull(clientId, "clientId is null").toString();
-    }
-
     @Override
-    public boolean canHandle(ConnectorTableHandle tableHandle)
+    public Class<? extends ConnectorTableLayoutHandle> getTableLayoutHandleClass()
     {
-        return tableHandle instanceof ElasticsearchTableHandle && ((ElasticsearchTableHandle) tableHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ColumnHandle columnHandle)
-    {
-        return columnHandle instanceof ElasticsearchColumnHandle && ((ElasticsearchColumnHandle) columnHandle).getConnectorId().equals(connectorId);
-    }
-
-    @Override
-    public boolean canHandle(ConnectorSplit split)
-    {
-        return split instanceof ElasticsearchSplit && ((ElasticsearchSplit) split).getConnectorId().equals(connectorId);
+        return ElasticsearchTableLayoutHandle.class;
     }
 
     @Override
