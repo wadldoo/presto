@@ -22,21 +22,18 @@ public class ElasticsearchConnector
     private final ElasticsearchMetadata metadata;
     private final ElasticsearchSplitManager splitManager;
     private final ElasticsearchRecordSetProvider recordSetProvider;
-    private final ElasticsearchHandleResolver handleResolver;
 
     @Inject
     public ElasticsearchConnector(
             LifeCycleManager lifeCycleManager,
             ElasticsearchMetadata metadata,
             ElasticsearchSplitManager splitManager,
-            ElasticsearchRecordSetProvider recordSetProvider,
-            ElasticsearchHandleResolver handleResolver)
+            ElasticsearchRecordSetProvider recordSetProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
-        this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
     }
 
     @Override
