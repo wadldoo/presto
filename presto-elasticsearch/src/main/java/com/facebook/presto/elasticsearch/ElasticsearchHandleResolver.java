@@ -18,6 +18,7 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -47,6 +48,12 @@ public class ElasticsearchHandleResolver
     public Class<? extends ConnectorSplit> getSplitClass()
     {
         return ElasticsearchSplit.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
+    {
+        return ElasticsearchTransactionHandle.class;
     }
 
     static ElasticsearchTableHandle convertTableHandle(ConnectorTableHandle tableHandle)
