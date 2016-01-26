@@ -13,26 +13,10 @@
  */
 package com.facebook.presto.elasticsearch;
 
-import io.airlift.configuration.Config;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
-import javax.validation.constraints.NotNull;
-
-import java.net.URI;
-
-public class ElasticsearchConfig
+public enum ElasticsearchTransactionHandle
+        implements ConnectorTransactionHandle
 {
-    private URI metadata;
-
-    @NotNull
-    public URI getMetadata()
-    {
-        return metadata;
-    }
-
-    @Config("metadata-uri")
-    public ElasticsearchConfig setMetadata(URI metadata)
-    {
-        this.metadata = metadata;
-        return this;
-    }
+    INSTANCE
 }
