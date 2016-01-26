@@ -22,6 +22,9 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.net.URL;
 
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.CONNECTOR_ID;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_SCHEMA;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_TBL_1;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -29,9 +32,6 @@ import static org.testng.Assert.assertNotNull;
 @Test(singleThreaded = true)
 public class TestElasticsearchMetadata
 {
-    private static final String CONNECTOR_ID = "TEST";
-    private static final String ES_SCHEMA = "be";
-    private static final String ES_TBL_1 = "fancyPantsTable";
     private static final ElasticsearchTableHandle ES_TABLE_HANDLE = new ElasticsearchTableHandle(CONNECTOR_ID, ES_SCHEMA, ES_TBL_1);
     private ElasticsearchMetadata metadata;
     private URI metadataUri;
