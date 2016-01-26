@@ -21,14 +21,14 @@ import java.net.URI;
 import java.net.URL;
 import java.util.Map;
 
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_SCHEMA;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_TBL_1;
 import static com.facebook.presto.elasticsearch.MetadataUtil.CATALOG_CODEC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestElasticsearchClient
 {
-    private static final String ES_SCHEMA = "be";
-    private static final String ES_TBL_1 = "fancyPantsTable";
     private ElasticsearchClient client;
 
     @BeforeClass
@@ -57,6 +57,6 @@ public class TestElasticsearchClient
         ElasticsearchTable table = client.getTable(ES_SCHEMA, ES_TBL_1);
         assertNotNull(table);
         assertNotNull(table.getColumns());
-        assertEquals(table.getColumns().size(), 24);
+        assertEquals(table.getColumns().size(), 4);
     }
 }
