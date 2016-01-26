@@ -19,9 +19,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import static java.util.Objects.requireNonNull;
 
-/**
- * Created by lucianmatei on 25/01/16.
- */
 public class ElasticsearchTableLayoutHandle
         implements ConnectorTableLayoutHandle
 {
