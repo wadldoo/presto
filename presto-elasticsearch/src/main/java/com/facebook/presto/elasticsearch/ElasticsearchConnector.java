@@ -24,6 +24,8 @@ import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
+import static com.facebook.presto.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static com.facebook.presto.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchConnector
@@ -52,8 +54,8 @@ public class ElasticsearchConnector
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
     {
-        //TODO implement this
-        throw new UnsupportedOperationException();
+        checkConnectorSupports(READ_COMMITTED, isolationLevel);
+        return ElasticsearchTransactionHandle.INSTANCE;
     }
 
     @Override
