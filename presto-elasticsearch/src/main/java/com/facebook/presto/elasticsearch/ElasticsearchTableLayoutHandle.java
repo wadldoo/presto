@@ -17,26 +17,42 @@ import com.facebook.presto.spi.ConnectorTableLayoutHandle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import static java.util.Objects.requireNonNull;
+import java.util.Objects;
 
-/**
- * Created by lucianmatei on 25/01/16.
- */
 public class ElasticsearchTableLayoutHandle
-        implements ConnectorTableLayoutHandle
+    implements ConnectorTableLayoutHandle
 {
     private final ElasticsearchTableHandle table;
 
     @JsonCreator
     public ElasticsearchTableLayoutHandle(@JsonProperty("table") ElasticsearchTableHandle table)
     {
-        this.table = requireNonNull(table, "table is null");
+        this.table = table;
     }
 
     @JsonProperty
     public ElasticsearchTableHandle getTable()
     {
         return table;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ElasticsearchTableLayoutHandle that = (ElasticsearchTableLayoutHandle) o;
+        return Objects.equals(table, that.table);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(table);
     }
 
     @Override
