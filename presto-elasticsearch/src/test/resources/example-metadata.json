@@ -1,15 +1,27 @@
 {
-    "be": [
+  "es_schema": [
+    {
+      "name": "movies",
+      "sources": [
         {
-            "name": "fancyPantsTable",
-            "sources": [
-                {
-                    "hostaddress": "172.17.42.1",
-                    "port": 9300,
-                    "clusterName": "es-routes",
-                    "type": "route"
-                }
-            ]
+          "hostaddress": "localhost",
+          "port": 9300,
+          "clusterName": "elasticsearch",
+          "type": "movie"
         }
-    ]
+      ]
+    },
+    {
+      "name": "blogs",
+      "sources": [
+        {
+          "hostaddress": "localhost",
+          "port": 9300,
+          "clusterName": "elasticsearch",
+          "index": "websites",
+          "type":"blog"
+        }
+      ]
+    }
+  ]
 }
