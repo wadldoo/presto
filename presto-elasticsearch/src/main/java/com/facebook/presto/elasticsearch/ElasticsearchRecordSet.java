@@ -29,10 +29,12 @@ public class ElasticsearchRecordSet
     private final List<Type> columnTypes;
     //private final ByteSource byteSource;
     private final ElasticsearchTableSource tableSource;
+    private final ElasticsearchClient elasticsearchClient;
 
-    public ElasticsearchRecordSet(ElasticsearchSplit split, List<ElasticsearchColumnHandle> columnHandles)
+    public ElasticsearchRecordSet(ElasticsearchSplit split, List<ElasticsearchColumnHandle> columnHandles, ElasticsearchClient elasticsearchClient)
     {
         requireNonNull(split, "split is null");
+        this.elasticsearchClient = requireNonNull(elasticsearchClient, "client is null");
 
         this.columnHandles = requireNonNull(columnHandles, "column handles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
@@ -61,6 +63,6 @@ public class ElasticsearchRecordSet
     @Override
     public RecordCursor cursor()
     {
-        return new ElasticsearchRecordCursor(columnHandles, tableSource);
+        return new ElasticsearchRecordCursor(columnHandles, tableSource, elasticsearchClient);
     }
 }
