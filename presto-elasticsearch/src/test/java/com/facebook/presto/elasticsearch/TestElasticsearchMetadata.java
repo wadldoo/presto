@@ -22,6 +22,10 @@ import org.testng.annotations.Test;
 import java.net.URI;
 import java.net.URL;
 
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.CONNECTOR_ID;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_SCHEMA1;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_SCHEMA2;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_TBL_1;
 import static com.facebook.presto.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -29,10 +33,7 @@ import static org.testng.Assert.assertNotNull;
 @Test(singleThreaded = true)
 public class TestElasticsearchMetadata
 {
-    private static final String CONNECTOR_ID = "TEST";
-    private static final String ES_SCHEMA = "be";
-    private static final String ES_TBL_1 = "fancyPantsTable";
-    private static final ElasticsearchTableHandle ES_TABLE_HANDLE = new ElasticsearchTableHandle(CONNECTOR_ID, ES_SCHEMA, ES_TBL_1);
+    private static final ElasticsearchTableHandle ES_TABLE_HANDLE = new ElasticsearchTableHandle(CONNECTOR_ID, ES_SCHEMA1, ES_TBL_1);
     private ElasticsearchMetadata metadata;
     private URI metadataUri;
 
@@ -50,14 +51,14 @@ public class TestElasticsearchMetadata
     @Test
     public void testListSchemaNames()
     {
-        assertEquals(metadata.listSchemaNames(SESSION), ImmutableSet.of("be"));
+        assertEquals(metadata.listSchemaNames(SESSION), ImmutableSet.of(ES_SCHEMA1, ES_SCHEMA2));
     }
 
     @Test
     public void testGetTableHandle()
     {
         assertEquals(
-                metadata.getTableHandle(SESSION, new SchemaTableName(ES_SCHEMA, ES_TBL_1)),
+                metadata.getTableHandle(SESSION, new SchemaTableName(ES_SCHEMA1, ES_TBL_1)),
                 ES_TABLE_HANDLE);
     }
 }
