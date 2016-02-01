@@ -33,11 +33,13 @@ public class ElasticsearchRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final String connectorId;
+    private final ElasticsearchClient elasticsearchClient;
 
     @Inject
-    public ElasticsearchRecordSetProvider(ElasticsearchConnectorId connectorId)
+    public ElasticsearchRecordSetProvider(ElasticsearchConnectorId connectorId, ElasticsearchClient elasticsearchClient)
     {
         this.connectorId = requireNonNull(connectorId, "connectorId is null").toString();
+        this.elasticsearchClient = requireNonNull(elasticsearchClient, "client is null");
     }
 
     @Override
@@ -57,6 +59,6 @@ public class ElasticsearchRecordSetProvider
             handles.add(checkType(handle, ElasticsearchColumnHandle.class, "handle"));
         }
 
-        return new ElasticsearchRecordSet(elasticsearchSplit, handles.build());
+        return new ElasticsearchRecordSet(elasticsearchSplit, handles.build(), elasticsearchClient);
     }
 }
