@@ -1,12 +1,18 @@
 {
-  "es_schema": [
+  "es_schema1": [
     {
       "name": "movies",
       "sources": [
         {
-          "hostaddress": "localhost",
+          "hostAddress": "localhost",
           "port": 9300,
           "clusterName": "elasticsearch",
+          "type": "movie"
+        },
+        {
+          "hostAddress": "192.168.13.32",
+          "port": 9300,
+          "clusterName": "es66",
           "type": "movie"
         }
       ]
@@ -15,11 +21,25 @@
       "name": "blogs",
       "sources": [
         {
-          "hostaddress": "localhost",
+          "hostAddress": "localhost",
           "port": 9300,
           "clusterName": "elasticsearch",
           "index": "websites",
-          "type":"blog"
+          "type": "blog"
+        }
+      ]
+    }
+  ],
+  "es_schema2": [
+    {
+      "name": "blogs",
+      "sources": [
+        {
+          "hostAddress": "localhost",
+          "port": 9300,
+          "clusterName": "elasticsearch",
+          "index": "websites",
+          "type": "blog"
         }
       ]
     }
