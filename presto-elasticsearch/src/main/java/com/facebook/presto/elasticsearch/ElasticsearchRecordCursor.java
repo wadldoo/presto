@@ -22,10 +22,6 @@ import io.airlift.slice.Slices;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.settings.ImmutableSettings;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
@@ -55,7 +51,7 @@ public class ElasticsearchRecordCursor
     private long totalBytes;
     private List<String> fields;
 
-    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchTableSource tableSource)
+    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchTableSource tableSource, ElasticsearchClient elasticsearchClient)
     {
         this.columnHandles = columnHandles;
         this.jsonPathToIndex = new HashMap();
@@ -67,7 +63,7 @@ public class ElasticsearchRecordCursor
             fieldsNeeded.add(columnHandles.get(i).getColumnJsonPath());
         }
 
-        this.lines = getRows(tableSource, fieldsNeeded).iterator();
+        this.lines = getRows(tableSource, fieldsNeeded, elasticsearchClient).iterator();
     }
 
     @Override
@@ -190,43 +186,38 @@ public class ElasticsearchRecordCursor
                 .toArray(size -> new String[size]);
     }
 
-    List<SearchHit> getRows(ElasticsearchTableSource tableSource, ArrayList<String> fieldsNeeded)
+    List<SearchHit> getRows(ElasticsearchTableSource tableSource, ArrayList<String> fieldsNeeded, ElasticsearchClient elasticsearchClient)
     {
         List<SearchHit> result = new ArrayList<>();
+        String clusterName = tableSource.getClusterName();
+        String hostAddress = tableSource.getHostAddress();
         int port = tableSource.getPort();
-        String hostaddress = tableSource.getHostaddress();
+        String index = tableSource.getIndex();
         String type = tableSource.getType();
 
-        log.debug("type :" + type);
-        log.debug("hostaddress :" + hostaddress);
-        log.debug("port :" + port);
+        log.debug(String.format("Connecting to cluster %s from %s:%d, index %s, type %s", clusterName, hostAddress, port, index, type));
+        Client client = elasticsearchClient.getInternalClients().get(clusterName);
+        SearchResponse scrollResp = client
+                .prepareSearch(getIndices(client, type))
+                .setTypes(tableSource.getType())
+                .addFields(fieldsNeeded.toArray(new String[fieldsNeeded.size()]))
+                .setSearchType(SearchType.SCAN)
+                .setScroll(new TimeValue(60000))
+                .setSize(20000).execute()
+                .actionGet(); //20000 hits per shard will be returned for each scroll
 
-        Settings settings = ImmutableSettings.settingsBuilder()
-                .put("cluster.name", tableSource.getClusterName())
-                .build();
-        try (Client client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(hostaddress, port))) {
-            SearchResponse scrollResp = client
-                    .prepareSearch(getIndices(client, type))
-                    .setTypes(tableSource.getType())
-                    .addFields(fieldsNeeded.toArray(new String[fieldsNeeded.size()]))
-                    .setSearchType(SearchType.SCAN)
-                    .setScroll(new TimeValue(60000))
-                    .setSize(20000).execute()
-                    .actionGet(); //20000 hits per shard will be returned for each scroll
+        //Scroll until no hits are returned
+        while (true) {
+            for (SearchHit hit : scrollResp.getHits().getHits()) {
+                result.add(hit);
+            }
 
-            //Scroll until no hits are returned
-            while (true) {
-                for (SearchHit hit : scrollResp.getHits().getHits()) {
-                    result.add(hit);
-                }
+            scrollResp = client
+                    .prepareSearchScroll(scrollResp.getScrollId())
+                    .setScroll(new TimeValue(600000)).execute().actionGet();
 
-                scrollResp = client
-                        .prepareSearchScroll(scrollResp.getScrollId())
-                        .setScroll(new TimeValue(600000)).execute().actionGet();
-
-                if (scrollResp.getHits().getHits().length == 0) {
-                    break;
-                }
+            if (scrollResp.getHits().getHits().length == 0) {
+                break;
             }
         }
 
