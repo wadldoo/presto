@@ -20,7 +20,7 @@ import static java.util.Objects.requireNonNull;
 
 public class ElasticsearchTableSource
 {
-    private String hostaddress;
+    private String hostAddress;
     private int port;
     private String clusterName;
     private String index;
@@ -28,13 +28,13 @@ public class ElasticsearchTableSource
 
     @JsonCreator
     public ElasticsearchTableSource(
-            @JsonProperty("hostaddress") String hostaddress,
+            @JsonProperty("hostAddress") String hostAddress,
             @JsonProperty("port") int port,
             @JsonProperty("clusterName") String clusterName,
             @JsonProperty("index") String index,
             @JsonProperty("type") String type)
     {
-        this.hostaddress = requireNonNull(hostaddress, "hostaddress is null");
+        this.hostAddress = requireNonNull(hostAddress, "hostAddress is null");
         this.port = requireNonNull(port, "port is null");
         this.clusterName = requireNonNull(clusterName, "clusterName is null");
         this.index = index;
@@ -42,9 +42,9 @@ public class ElasticsearchTableSource
     }
 
     @JsonProperty
-    public String getHostaddress()
+    public String getHostAddress()
     {
-        return hostaddress;
+        return hostAddress;
     }
 
     @JsonProperty

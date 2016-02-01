@@ -1,15 +1,47 @@
 {
-    "be": [
+  "es_schema1": [
+    {
+      "name": "movies",
+      "sources": [
         {
-            "name": "fancyPantsTable",
-            "sources": [
-                {
-                    "hostaddress": "172.17.42.1",
-                    "port": 9300,
-                    "clusterName": "es-routes",
-                    "type": "route"
-                }
-            ]
+          "hostAddress": "localhost",
+          "port": 9300,
+          "clusterName": "elasticsearch",
+          "type": "movie"
+        },
+        {
+          "hostAddress": "192.168.13.32",
+          "port": 9300,
+          "clusterName": "es66",
+          "type": "movie"
         }
-    ]
+      ]
+    },
+    {
+      "name": "blogs",
+      "sources": [
+        {
+          "hostAddress": "localhost",
+          "port": 9300,
+          "clusterName": "elasticsearch",
+          "index": "websites",
+          "type": "blog"
+        }
+      ]
+    }
+  ],
+  "es_schema2": [
+    {
+      "name": "blogs",
+      "sources": [
+        {
+          "hostAddress": "localhost",
+          "port": 9300,
+          "clusterName": "elasticsearch",
+          "index": "websites",
+          "type": "blog"
+        }
+      ]
+    }
+  ]
 }

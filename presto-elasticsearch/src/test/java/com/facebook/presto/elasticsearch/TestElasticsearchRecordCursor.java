@@ -23,15 +23,14 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.CONNECTOR_ID;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_SCHEMA1;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_TBL_1;
 import static com.facebook.presto.elasticsearch.MetadataUtil.CATALOG_CODEC;
 import static org.testng.Assert.assertNotNull;
 
 public class TestElasticsearchRecordCursor
 {
-    private static final String ES_SCHEMA = "be";
-    private static final String ES_TBL_1 = "fancyPantsTable";
-    private static final String CONNECTOR_ID = "elasticsearch";
-
     private ElasticsearchClient client;
 
     @BeforeClass
@@ -48,13 +47,13 @@ public class TestElasticsearchRecordCursor
     @Test
     public void testCursor()
     {
-        ElasticsearchTable table = client.getTable(ES_SCHEMA, ES_TBL_1);
+        ElasticsearchTable table = client.getTable(ES_SCHEMA1, ES_TBL_1);
         assertNotNull(table);
 
         ElasticsearchRecordCursor elasticsearchRecordCursor =
                 new ElasticsearchRecordCursor(
                         getElasticsearchColumnHandles(table),
-                        table.getSources().get(0));
+                        table.getSources().get(0), client);
 
         assertNotNull(elasticsearchRecordCursor);
     }
