@@ -42,6 +42,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -69,6 +70,7 @@ public class ElasticsearchClient
     private Supplier<Map<String, Map<String, ElasticsearchTable>>> schemas;
     private ElasticsearchConfig config;
     private JsonCodec<Map<String, List<ElasticsearchTable>>> catalogCodec;
+    private ImmutableMap<String, Client> internalClients;
 
     @Inject
     public ElasticsearchClient(ElasticsearchConfig config, JsonCodec<Map<String, List<ElasticsearchTable>>> catalogCodec)
@@ -79,8 +81,13 @@ public class ElasticsearchClient
 
         this.config = config;
         this.catalogCodec = catalogCodec;
+        this.schemas = Suppliers.memoize(schemasSupplier(catalogCodec, config.getMetadata()));
+        this.internalClients = createClients(this.schemas.get());
+    }
 
-        schemas = Suppliers.memoize(schemasSupplier(catalogCodec, config.getMetadata()));
+    public ImmutableMap<String, Client> getInternalClients()
+    {
+        return internalClients;
     }
 
     public Set<String> getSchemaNames()
@@ -137,37 +144,26 @@ public class ElasticsearchClient
             throws ExecutionException, InterruptedException
     {
         int port = src.getPort();
-        String hostaddress = src.getHostaddress();
+        String hostAddress = src.getHostAddress();
         String clusterName = src.getClusterName();
         String index = src.getIndex();
         String type = src.getType();
 
-        log.debug("connecting ....");
-        log.debug("hostaddress :" + hostaddress);
-        log.debug("port :" + port);
-        log.debug("clusterName :" + clusterName);
-        log.debug("index :" + index);
-        log.debug("type :" + type);
+        log.debug(String.format("Connecting to cluster %s from %s:%d, index %s, type %s", clusterName, hostAddress, port, index, type));
+        Client client = internalClients.get(clusterName);
+        GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(type);
 
-        Settings settings = ImmutableSettings.settingsBuilder()
-                .put("cluster.name", clusterName)
-                .build();
-
-        try (Client client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(hostaddress, port))) {
-            GetMappingsRequest mappingsRequest = new GetMappingsRequest().types(type);
-
-            // an index is optional - if no index is configured for the table, it will retrieve all indices for the doc type
-            if (index != null && !index.isEmpty()) {
-                mappingsRequest.indices(index);
-            }
-
-            return client
-                    .admin()
-                    .indices()
-                    .getMappings(mappingsRequest)
-                    .get()
-                    .getMappings();
+        // an index is optional - if no index is configured for the table, it will retrieve all indices for the doc type
+        if (index != null && !index.isEmpty()) {
+            mappingsRequest.indices(index);
         }
+
+        return client
+                .admin()
+                .indices()
+                .getMappings(mappingsRequest)
+                .get()
+                .getMappings();
     }
 
     Set<ElasticsearchColumn> getColumns(ElasticsearchTableSource src)
@@ -300,7 +296,9 @@ public class ElasticsearchClient
         log.debug("tableMappings: " + tableMappings);
 
         Map<String, List<ElasticsearchTable>> catalog = catalogCodec.fromJson(tableMappings);
-
+       /* Set<String> tables = catalog.keySet();
+        for(String key )
+*/
         return ImmutableMap.copyOf(
                 transformValues(
                         catalog,
@@ -327,5 +325,29 @@ public class ElasticsearchClient
                                 tables,
                                 table -> new ElasticsearchTable(table.getName(), table.getSources())),
                         ElasticsearchTable::getName));
+    }
+
+    static ImmutableMap<String, Client> createClients(Map<String, Map<String, ElasticsearchTable>> schemas)
+    {
+        Map<String, Client> transportClients = new HashMap<String, Client>();
+
+        for (String key : schemas.keySet()) {
+            Map<String, ElasticsearchTable> tableMap = schemas.get(key);
+            for (String tableName : tableMap.keySet()) {
+                ElasticsearchTable elasticsearchTable = tableMap.get(tableName);
+                List<ElasticsearchTableSource> tableSources = elasticsearchTable.getSources();
+                for (ElasticsearchTableSource tableSource : tableSources) {
+                    String clusterName = tableSource.getClusterName();
+                    if (transportClients.get(clusterName) == null) {
+                        Settings settings = ImmutableSettings.settingsBuilder()
+                                .put("cluster.name", clusterName)
+                                .build();
+                        Client transportClient = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(tableSource.getHostAddress(), tableSource.getPort()));
+                        transportClients.put(clusterName, transportClient);
+                    }
+                }
+            }
+        }
+        return ImmutableMap.copyOf(transportClients);
     }
 }
