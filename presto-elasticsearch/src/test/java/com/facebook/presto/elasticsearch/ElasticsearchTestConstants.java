@@ -17,7 +17,7 @@ public final class ElasticsearchTestConstants
 {
     public static final String ES_SCHEMA1 = "es_schema1";
     public static final String ES_SCHEMA2 = "es_schema2";
-    public static final String ES_TBL_1 = "movies";
+    public static final String ES_TBL_1 = "fancyPantsTable";
     public static final String CONNECTOR_ID = "TEST";
 
     private ElasticsearchTestConstants()
