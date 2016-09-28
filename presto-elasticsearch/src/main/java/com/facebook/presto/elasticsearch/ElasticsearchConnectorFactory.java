@@ -33,13 +33,11 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchConnectorFactory
         implements ConnectorFactory
 {
-    private TypeManager typeManager;
     private final Map<String, String> optionalConfig;
     private final ClassLoader classLoader;
 
-    public ElasticsearchConnectorFactory(TypeManager typeManager, Map<String, String> optionalConfig, ClassLoader classLoader)
+    public ElasticsearchConnectorFactory(Map<String, String> optionalConfig, ClassLoader classLoader)
     {
-//        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
@@ -65,7 +63,7 @@ public class ElasticsearchConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new ElasticsearchModule(connectorId, typeManager),
+                    new ElasticsearchModule(connectorId),
                     binder -> {
                         binder.bind(ElasticsearchConnectorId.class).toInstance(new ElasticsearchConnectorId(connectorId));
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
