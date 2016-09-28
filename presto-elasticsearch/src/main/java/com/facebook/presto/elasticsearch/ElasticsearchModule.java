@@ -37,12 +37,10 @@ public class ElasticsearchModule
 {
     private static final Logger log = Logger.get(ElasticsearchModule.class);
     private final String connectorId;
-//    private final TypeManager typeManager;
 
-    public ElasticsearchModule(String connectorId, TypeManager typeManager)
+    public ElasticsearchModule(String connectorId)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
-//        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
