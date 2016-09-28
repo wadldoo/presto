@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
+import io.airlift.log.Logger;
 
 import javax.inject.Inject;
 
@@ -34,22 +35,20 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchModule
         implements Module
 {
+    private static final Logger log = Logger.get(ElasticsearchModule.class);
     private final String connectorId;
-    private final TypeManager typeManager;
+//    private final TypeManager typeManager;
 
     public ElasticsearchModule(String connectorId, TypeManager typeManager)
     {
         this.connectorId = requireNonNull(connectorId, "connector id is null");
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+//        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(TypeManager.class).toInstance(typeManager);
-
         binder.bind(ElasticsearchConnector.class).in(Scopes.SINGLETON);
-        binder.bind(ElasticsearchConnectorId.class).toInstance(new ElasticsearchConnectorId(connectorId));
         binder.bind(ElasticsearchMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchClient.class).in(Scopes.SINGLETON);
         binder.bind(ElasticsearchSplitManager.class).in(Scopes.SINGLETON);
@@ -70,6 +69,7 @@ public class ElasticsearchModule
         public TypeDeserializer(TypeManager typeManager)
         {
             super(Type.class);
+            log.info("Type Manager injected");
             this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
