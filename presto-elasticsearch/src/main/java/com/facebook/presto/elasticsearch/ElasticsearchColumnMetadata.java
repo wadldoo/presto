@@ -27,7 +27,7 @@ public class ElasticsearchColumnMetadata
 
     public ElasticsearchColumnMetadata(String name, Type type, String jsonPath, String jsonType, boolean partitionKey)
     {
-        super(name, type, partitionKey, null, false);
+        super(name, type);
         this.jsonPath = jsonPath;
         this.jsonType = jsonType;
     }
