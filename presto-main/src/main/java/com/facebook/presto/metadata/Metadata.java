@@ -14,11 +14,14 @@
 package com.facebook.presto.metadata;
 
 import com.facebook.presto.Session;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.ConnectorTableMetadata;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.block.BlockEncodingSerde;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.TypeManager;
 import com.facebook.presto.spi.type.TypeSignature;
@@ -47,6 +50,8 @@ public interface Metadata
 
     void addFunctions(List<? extends SqlFunction> functions);
 
+    boolean schemaExists(Session session, QualifiedSchemaName schema);
+
     @NotNull
     List<String> listSchemaNames(Session session, String catalogName);
 
@@ -61,6 +66,9 @@ public interface Metadata
 
     @NotNull
     TableLayout getLayout(Session session, TableLayoutHandle handle);
+
+    @NotNull
+    Optional<Object> getInfo(Session session, TableLayoutHandle handle);
 
     /**
      * Return the metadata for the specified table handle.
@@ -116,7 +124,7 @@ public interface Metadata
      * Creates a table using the specified table metadata.
      */
     @NotNull
-    void createTable(Session session, String catalogName, TableMetadata tableMetadata);
+    void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
 
     /**
      * Rename the specified table.
@@ -140,15 +148,19 @@ public interface Metadata
      */
     void dropTable(Session session, TableHandle tableHandle);
 
+    Optional<NewTableLayout> getNewTableLayout(Session session, String catalogName, ConnectorTableMetadata tableMetadata);
+
     /**
      * Begin the atomic creation of a table with data.
      */
-    OutputTableHandle beginCreateTable(Session session, String catalogName, TableMetadata tableMetadata);
+    OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<NewTableLayout> layout);
 
     /**
      * Finish a table creation with data after the data is written.
      */
     void finishCreateTable(Session session, OutputTableHandle tableHandle, Collection<Slice> fragments);
+
+    Optional<NewTableLayout> getInsertLayout(Session session, TableHandle target);
 
     /**
      * Begin insert query
@@ -193,7 +205,7 @@ public interface Metadata
      * @return Map of catalog name to connector id
      */
     @NotNull
-    Map<String, String> getCatalogNames();
+    Map<String, ConnectorId> getCatalogNames();
 
     /**
      * Get the names that match the specified table prefix (never null).
@@ -227,6 +239,16 @@ public interface Metadata
      * Try to locate a table index that can lookup results by indexableColumns and provide the requested outputColumns.
      */
     Optional<ResolvedIndex> resolveIndex(Session session, TableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain);
+
+    /**
+     * Grants the specified privilege to the specified user on the specified table
+     */
+    void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption);
+
+    /**
+     * Revokes the specified privilege on the specified table from the specified user
+     */
+    void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, String grantee, boolean grantOption);
 
     FunctionRegistry getFunctionRegistry();
 

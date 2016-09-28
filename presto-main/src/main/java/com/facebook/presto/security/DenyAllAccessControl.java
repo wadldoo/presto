@@ -15,6 +15,7 @@ package com.facebook.presto.security;
 
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.transaction.TransactionId;
 
 import java.security.Principal;
@@ -22,12 +23,15 @@ import java.security.Principal;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyAddColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyCreateViewWithSelect;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDeleteTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyDropView;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyInsertTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameColumn;
 import static com.facebook.presto.spi.security.AccessDeniedException.denyRenameTable;
+import static com.facebook.presto.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectTable;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySelectView;
 import static com.facebook.presto.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
@@ -112,13 +116,25 @@ public class DenyAllAccessControl
     @Override
     public void checkCanCreateViewWithSelectFromTable(TransactionId transactionId, Identity identity, QualifiedObjectName tableName)
     {
-        denySelectTable(tableName.toString());
+        denyCreateViewWithSelect(tableName.toString());
     }
 
     @Override
     public void checkCanCreateViewWithSelectFromView(TransactionId transactionId, Identity identity, QualifiedObjectName viewName)
     {
-        denySelectView(viewName.toString());
+        denyCreateViewWithSelect(viewName.toString());
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    {
+        denyGrantTablePrivilege(privilege.name(), tableName.toString());
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    {
+        denyRevokeTablePrivilege(privilege.name(), tableName.toString());
     }
 
     @Override

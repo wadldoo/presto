@@ -17,6 +17,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 
 import static java.util.Objects.requireNonNull;
 
@@ -112,5 +113,17 @@ public class LegacyConnectorAccessControl
     public void checkCanSetCatalogSessionProperty(Identity identity, String propertyName)
     {
         accessControl.checkCanSetCatalogSessionProperty(identity, propertyName);
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
+    {
+        accessControl.checkCanGrantTablePrivilege(identity, privilege, tableName);
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(ConnectorTransactionHandle transactionHandle, Identity identity, Privilege privilege, SchemaTableName tableName)
+    {
+        accessControl.checkCanRevokeTablePrivilege(identity, privilege, tableName);
     }
 }

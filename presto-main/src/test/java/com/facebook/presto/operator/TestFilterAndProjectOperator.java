@@ -38,6 +38,7 @@ import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.testing.TestingTaskContext.createTaskContext;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.singleton;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 @Test(singleThreaded = true)
@@ -85,26 +86,32 @@ public class TestFilterAndProjectOperator
                 long value = cursor.getLong(0);
                 return 10 <= value && value < 20;
             }
+
+            @Override
+            public Set<Integer> getInputChannels()
+            {
+                return singleton(1);
+            }
         };
         OperatorFactory operatorFactory = new FilterAndProjectOperator.FilterAndProjectOperatorFactory(
                 0,
                 new PlanNodeId("test"),
-                new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
+                () -> new GenericPageProcessor(filter, ImmutableList.of(singleColumn(VARCHAR, 0), new Add5Projection(1))),
                 ImmutableList.<Type>of(VARCHAR, BIGINT));
 
         Operator operator = operatorFactory.createOperator(driverContext);
 
         MaterializedResult expected = MaterializedResult.resultBuilder(driverContext.getSession(), VARCHAR, BIGINT)
-                .row("10", 15)
-                .row("11", 16)
-                .row("12", 17)
-                .row("13", 18)
-                .row("14", 19)
-                .row("15", 20)
-                .row("16", 21)
-                .row("17", 22)
-                .row("18", 23)
-                .row("19", 24)
+                .row("10", 15L)
+                .row("11", 16L)
+                .row("12", 17L)
+                .row("13", 18L)
+                .row("14", 19L)
+                .row("15", 20L)
+                .row("16", 21L)
+                .row("17", 22L)
+                .row("18", 23L)
+                .row("19", 24L)
                 .build();
 
         assertOperatorEquals(operator, input, expected);

@@ -15,11 +15,11 @@ package com.facebook.presto.sql.analyzer;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.block.BlockEncodingManager;
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.metadata.QualifiedObjectName;
 import com.facebook.presto.metadata.SessionPropertyManager;
-import com.facebook.presto.metadata.TableMetadata;
 import com.facebook.presto.metadata.TablePropertyManager;
 import com.facebook.presto.metadata.TestingMetadata;
 import com.facebook.presto.metadata.ViewDefinition;
@@ -35,6 +35,7 @@ import com.facebook.presto.sql.parser.SqlParser;
 import com.facebook.presto.sql.tree.Statement;
 import com.facebook.presto.transaction.LegacyTransactionConnector;
 import com.facebook.presto.transaction.TransactionManager;
+import com.facebook.presto.type.ArrayType;
 import com.facebook.presto.type.TypeRegistry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
@@ -47,11 +48,13 @@ import java.util.function.Consumer;
 
 import static com.facebook.presto.metadata.ViewDefinition.ViewColumn;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.AMBIGUOUS_ATTRIBUTE;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CANNOT_HAVE_AGGREGATIONS_OR_WINDOWS;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.CATALOG_NOT_SPECIFIED;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_NAME_NOT_SPECIFIED;
+import static com.facebook.presto.sql.analyzer.SemanticErrorCode.COLUMN_TYPE_UNKNOWN;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_COLUMN_NAME;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.DUPLICATE_RELATION;
 import static com.facebook.presto.sql.analyzer.SemanticErrorCode.INVALID_LITERAL;
@@ -81,18 +84,25 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.transaction.TransactionBuilder.transaction;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
 {
+    private static final String TPCH_CATALOG = "tpch";
+    private static final ConnectorId TPCH_CONNECTOR_ID = new ConnectorId(TPCH_CATALOG);
+    private static final String SECOND_CATALOG = "c2";
+    private static final ConnectorId SECOND_CONNECTOR_ID = new ConnectorId(SECOND_CATALOG);
+    private static final String THIRD_CATALOG = "c3";
+    private static final ConnectorId THIRD_CONNECTOR_ID = new ConnectorId(THIRD_CATALOG);
     private static final Session SETUP_SESSION = testSessionBuilder()
             .setCatalog("c1")
             .setSchema("s1")
             .build();
     private static final Session CLIENT_SESSION = testSessionBuilder()
-            .setCatalog("tpch")
+            .setCatalog(TPCH_CATALOG)
             .setSchema("s1")
             .build();
 
@@ -100,14 +110,6 @@ public class TestAnalyzer
 
     private TransactionManager transactionManager;
     private Metadata metadata;
-
-    @Test
-    public void testDuplicateRelation()
-            throws Exception
-    {
-        assertFails(DUPLICATE_RELATION, "SELECT * FROM t1 JOIN t1 USING (a)");
-        assertFails(DUPLICATE_RELATION, "SELECT * FROM t1 x JOIN t2 x USING (a)");
-    }
 
     @Test
     public void testNonComparableGroupBy()
@@ -157,7 +159,7 @@ public class TestAnalyzer
     public void testScalarSubQuery()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT 'a', (VALUES 1) GROUP BY 1");
+        analyze("SELECT 'a', (VALUES 1) GROUP BY 1");
         analyze("SELECT 'a', (SELECT (1))");
         analyze("SELECT * FROM t1 WHERE (VALUES 1) = 2");
         analyze("SELECT * FROM t1 WHERE (VALUES 1) IN (VALUES 1)");
@@ -281,7 +283,7 @@ public class TestAnalyzer
         assertFails(MISSING_ATTRIBUTE, "SELECT * FROM t1 WHERE f > 1");
     }
 
-    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "line 1:8: Column '\"t\".\"y\"' cannot be resolved")
+    @Test(expectedExceptions = SemanticException.class, expectedExceptionsMessageRegExp = "line 1:8: Column 't.y' cannot be resolved")
     public void testInvalidAttributeCorrectErrorMessage()
             throws Exception
     {
@@ -382,11 +384,12 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testNonEquiJoin()
+    public void testNonEquiOuterJoin()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON t1.a + t2.a = 1");
-        assertFails(NOT_SUPPORTED, "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a OR t1.b = t2.b");
+        analyze("SELECT * FROM t1 LEFT JOIN t2 ON t1.a + t2.a = 1");
+        analyze("SELECT * FROM t1 RIGHT JOIN t2 ON t1.a + t2.a = 1");
+        analyze("SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a OR t1.b = t2.b");
     }
 
     @Test
@@ -552,13 +555,22 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testExplainAnalyze()
+            throws Exception
+    {
+        analyze("EXPLAIN ANALYZE SELECT * FROM t1");
+    }
+
+    @Test
     public void testInsert()
             throws Exception
     {
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t6 (a) SELECT b from t6");
         analyze("INSERT INTO t1 SELECT * FROM t1");
         analyze("INSERT INTO t3 SELECT * FROM t3");
         analyze("INSERT INTO t3 SELECT a, b FROM t3");
         assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 VALUES (1, 2)");
+        analyze("INSERT INTO t5 (a) VALUES(null)");
 
         // ignore t5 hidden column
         analyze("INSERT INTO t5 VALUES (1)");
@@ -576,6 +588,19 @@ public class TestAnalyzer
         assertFails(MISSING_COLUMN, "INSERT INTO t6 (unknown) SELECT * FROM t6");
         assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, a) SELECT * FROM t6");
         assertFails(DUPLICATE_COLUMN_NAME, "INSERT INTO t6 (a, A) SELECT * FROM t6");
+
+        // b is bigint, while a is double, coercion from b to a is possible
+        analyze("INSERT INTO t7 (b) SELECT (a) FROM t7 ");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t7 (a) SELECT (b) FROM t7");
+
+        // d is array of bigints, while c is array of doubles, coercion from d to c is possible
+        analyze("INSERT INTO t7 (d) SELECT (c) FROM t7 ");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t7 (c) SELECT (d) FROM t7 ");
+
+        analyze("INSERT INTO t7 (d) VALUES (ARRAY[null])");
+
+        analyze("INSERT INTO t6 (d) VALUES (1), (2), (3)");
+        analyze("INSERT INTO t6 (a,b,c,d) VALUES (1, 'a', 1, 1), (2, 'b', 2, 2), (3, 'c', 3, 3), (4, 'd', 4, 4)");
     }
 
     @Test
@@ -584,6 +609,16 @@ public class TestAnalyzer
     {
         assertFails(MISSING_TABLE, "INSERT INTO foo VALUES (1)");
         assertFails(NOT_SUPPORTED, "INSERT INTO v1 VALUES (1)");
+
+        // fail if inconsistent fields count
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a) VALUES (1), (1, 2)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES (1), (1, 2)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES (1, 2), (1, 2), (1, 2, 3)");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), ('a', 'b', 'c')");
+
+        // fail if mismatched column types
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), (1, 'b')");
+        assertFails(MISMATCHED_SET_COLUMN_TYPES, "INSERT INTO t1 (a, b) VALUES ('a', 'b'), ('a', 'b'), (1, 'b')");
     }
 
     @Test
@@ -649,6 +684,9 @@ public class TestAnalyzer
         assertFails(TYPE_MISMATCH, "SELECT CAST(date '2014-01-01' AS bigint)");
         assertFails(TYPE_MISMATCH, "SELECT TRY_CAST(date '2014-01-01' AS bigint)");
         assertFails(TYPE_MISMATCH, "SELECT CAST(null AS UNKNOWN)");
+        assertFails(TYPE_MISMATCH, "SELECT CAST(1 AS MAP)");
+        assertFails(TYPE_MISMATCH, "SELECT CAST(1 AS ARRAY)");
+        assertFails(TYPE_MISMATCH, "SELECT CAST(1 AS ROW)");
 
         // arithmetic unary
         assertFails(TYPE_MISMATCH, "SELECT -'a' FROM t1");
@@ -727,7 +765,20 @@ public class TestAnalyzer
         analyze("SELECT SUM(b) FROM t1 GROUP BY ()");
         analyze("SELECT SUM(b) FROM t1 GROUP BY GROUPING SETS (())");
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS (a)");
         analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b))");
+    }
+
+    @Test
+    public void testMultipleGroupingSetMultipleColumns()
+            throws Exception
+    {
+        // TODO: validate output
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b), (c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY a, b, GROUPING SETS ((c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a), (c, d))");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b)), ROLLUP (c, d)");
+        analyze("SELECT a, SUM(b) FROM t1 GROUP BY GROUPING SETS ((a, b)), CUBE (c, d)");
     }
 
     @Test
@@ -801,11 +852,31 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testCreateTableAsColumns()
+            throws Exception
+    {
+        assertFails(COLUMN_NAME_NOT_SPECIFIED, "CREATE TABLE test AS SELECT 123");
+        assertFails(DUPLICATE_COLUMN_NAME, "CREATE TABLE test AS SELECT 1 a, 2 a");
+        assertFails(COLUMN_TYPE_UNKNOWN, "CREATE TABLE test AS SELECT null a");
+    }
+
+    @Test
     public void testCreateViewColumns()
             throws Exception
     {
         assertFails(COLUMN_NAME_NOT_SPECIFIED, "CREATE VIEW test AS SELECT 123");
         assertFails(DUPLICATE_COLUMN_NAME, "CREATE VIEW test AS SELECT 1 a, 2 a");
+        assertFails(COLUMN_TYPE_UNKNOWN, "CREATE VIEW test AS SELECT null a");
+    }
+
+    @Test
+    public void testShowCreateView()
+    {
+        analyze("SHOW CREATE VIEW v1");
+        analyze("SHOW CREATE VIEW v2");
+
+        assertFails(NOT_SUPPORTED, "SHOW CREATE VIEW t1");
+        assertFails(MISSING_TABLE, "SHOW CREATE VIEW none");
     }
 
     @Test
@@ -832,6 +903,21 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testQualifiedViewColumnResolution()
+            throws Exception
+    {
+        // it should be possible to qualify the column reference with the view name
+        analyze("SELECT v1.a FROM v1");
+    }
+
+    @Test
+    public void testViewWithUppercaseColumn()
+            throws Exception
+    {
+        analyze("SELECT * FROM v4");
+    }
+
+    @Test
     public void testUse()
             throws Exception
     {
@@ -842,14 +928,14 @@ public class TestAnalyzer
     public void testNotNullInJoinClause()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
+        analyze("SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON a.x IS NOT NULL");
     }
 
     @Test
     public void testIfInJoinClause()
             throws Exception
     {
-        assertFails(NOT_SUPPORTED, "SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
+        analyze("SELECT * FROM (VALUES (1)) a (x) JOIN (VALUES (2)) b ON IF(a.x = 1, true, false)");
     }
 
     @Test
@@ -889,11 +975,18 @@ public class TestAnalyzer
         assertMissingInformationSchema(session, "SHOW TABLES FROM c2.s2");
 
         session = testSessionBuilder()
-                .setCatalog("c2")
+                .setCatalog(SECOND_CATALOG)
                 .setSchema(null)
                 .build();
         assertFails(session, SCHEMA_NOT_SPECIFIED, "SHOW TABLES");
         assertMissingInformationSchema(session, "SHOW TABLES FROM s2");
+    }
+
+    @Test
+    public void testInvalidAtTimeZone()
+            throws Exception
+    {
+        assertFails(TYPE_MISMATCH, "SELECT 'abc' AT TIME ZONE 'America/Los_Angeles'");
     }
 
     private void assertMissingInformationSchema(Session session, @Language("SQL") String query)
@@ -915,9 +1008,9 @@ public class TestAnalyzer
         TypeManager typeManager = new TypeRegistry();
 
         transactionManager = createTestTransactionManager();
-        transactionManager.addConnector("tpch", createTestingConnector("tpch"));
-        transactionManager.addConnector("c2", createTestingConnector("c2"));
-        transactionManager.addConnector("c3", createTestingConnector("c3"));
+        transactionManager.addConnector(TPCH_CONNECTOR_ID, createTestingConnector());
+        transactionManager.addConnector(SECOND_CONNECTOR_ID, createTestingConnector());
+        transactionManager.addConnector(THIRD_CONNECTOR_ID, createTestingConnector());
 
         MetadataManager metadata = new MetadataManager(
                 new FeaturesConfig().setExperimentalSyntaxEnabled(true),
@@ -926,82 +1019,101 @@ public class TestAnalyzer
                 new SessionPropertyManager(),
                 new TablePropertyManager(),
                 transactionManager);
-        metadata.registerConnectorCatalog("tpch", "tpch");
-        metadata.registerConnectorCatalog("c2", "c2");
-        metadata.registerConnectorCatalog("c3", "c3");
+        metadata.registerConnectorCatalog(TPCH_CONNECTOR_ID, TPCH_CATALOG);
+        metadata.registerConnectorCatalog(SECOND_CONNECTOR_ID, SECOND_CATALOG);
+        metadata.registerConnectorCatalog(THIRD_CONNECTOR_ID, THIRD_CATALOG);
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
-        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table1,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table1,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false),
-                        new ColumnMetadata("c", BIGINT, false),
-                        new ColumnMetadata("d", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT),
+                        new ColumnMetadata("c", BIGINT),
+                        new ColumnMetadata("d", BIGINT)))));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
-        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table2,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table2,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT)))));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
-        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table3,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table3,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false),
-                        new ColumnMetadata("x", BIGINT, false, null, true))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT),
+                        new ColumnMetadata("x", BIGINT, null, true)))));
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
-        inSetupTransaction(session -> metadata.createTable(session, "c2", new TableMetadata("tpch", new ConnectorTableMetadata(table4,
+        inSetupTransaction(session -> metadata.createTable(session, SECOND_CATALOG, new ConnectorTableMetadata(table4,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT)))));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
-        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table5,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table5,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", BIGINT, false, null, true))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", BIGINT, null, true)))));
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
-        inSetupTransaction(session -> metadata.createTable(session, "tpch", new TableMetadata("tpch", new ConnectorTableMetadata(table6,
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table6,
                 ImmutableList.of(
-                        new ColumnMetadata("a", BIGINT, false),
-                        new ColumnMetadata("b", VARCHAR, false),
-                        new ColumnMetadata("c", BIGINT, false),
-                        new ColumnMetadata("d", BIGINT, false))))));
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", VARCHAR),
+                        new ColumnMetadata("c", BIGINT),
+                        new ColumnMetadata("d", BIGINT)))));
+
+        // table with bigint, double, array of bigints and array of doubles column
+        SchemaTableName table7 = new SchemaTableName("s1", "t7");
+        inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG, new ConnectorTableMetadata(table7,
+                ImmutableList.of(
+                        new ColumnMetadata("a", BIGINT),
+                        new ColumnMetadata("b", DOUBLE),
+                        new ColumnMetadata("c", new ArrayType(BIGINT)),
+                        new ColumnMetadata("d", new ArrayType(DOUBLE))))));
 
         // valid view referencing table in same schema
         String viewData1 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select a from t1",
-                        Optional.of("tpch"),
+                        Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v1"), viewData1, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v1"), viewData1, false));
 
         // stale view (different column type)
         String viewData2 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select a from t1",
-                        Optional.of("tpch"),
+                        Optional.of(TPCH_CATALOG),
                         Optional.of("s1"),
                         ImmutableList.of(new ViewColumn("a", VARCHAR)),
                         Optional.of("user")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v2"), viewData2, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "v2"), viewData2, false));
 
         // view referencing table in different schema from itself and session
         String viewData3 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
                 new ViewDefinition(
                         "select a from t4",
-                        Optional.of("c2"),
+                        Optional.of(SECOND_CATALOG),
                         Optional.of("s2"),
                         ImmutableList.of(new ViewColumn("a", BIGINT)),
                         Optional.of("owner")));
-        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("c3", "s3", "v3"), viewData3, false));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName(THIRD_CATALOG, "s3", "v3"), viewData3, false));
+
+        // valid view with uppercase column name
+        String viewData4 = JsonCodec.jsonCodec(ViewDefinition.class).toJson(
+                new ViewDefinition(
+                        "select A from t1",
+                        Optional.of("tpch"),
+                        Optional.of("s1"),
+                        ImmutableList.of(new ViewColumn("a", BIGINT)),
+                        Optional.of("user")));
+        inSetupTransaction(session -> metadata.createView(session, new QualifiedObjectName("tpch", "s1", "v4"), viewData4, false));
 
         this.metadata = metadata;
     }
@@ -1022,7 +1134,8 @@ public class TestAnalyzer
                 SQL_PARSER,
                 new AllowAllAccessControl(),
                 Optional.empty(),
-                experimentalSyntaxEnabled);
+                experimentalSyntaxEnabled,
+                emptyList());
     }
 
     private void analyze(@Language("SQL") String query)
@@ -1087,9 +1200,10 @@ public class TestAnalyzer
         }
     }
 
-    private static Connector createTestingConnector(String connectorId)
+    @SuppressWarnings("deprecation")
+    private static Connector createTestingConnector()
     {
-        return new LegacyTransactionConnector(connectorId, new com.facebook.presto.spi.Connector()
+        return new LegacyTransactionConnector(new com.facebook.presto.spi.Connector()
         {
             private final ConnectorMetadata metadata = new TestingMetadata();
 

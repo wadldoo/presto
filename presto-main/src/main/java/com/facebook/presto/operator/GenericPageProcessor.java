@@ -22,6 +22,7 @@ import com.facebook.presto.spi.block.BlockBuilderStatus;
 import com.facebook.presto.spi.block.DictionaryBlock;
 import com.facebook.presto.spi.block.DictionaryId;
 import com.facebook.presto.spi.block.LazyBlock;
+import com.facebook.presto.spi.block.RunLengthEncodedBlock;
 import com.facebook.presto.spi.type.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import static com.facebook.presto.spi.block.DictionaryId.randomDictionaryId;
 import static com.google.common.base.Verify.verify;
@@ -47,6 +49,9 @@ public class GenericPageProcessor
 
     private final Block[] inputDictionaries;
     private final Block[] outputDictionaries;
+
+    private Block inputFilterDictionary;
+    private boolean[] filterResult;
 
     public GenericPageProcessor(FilterFunction filterFunction, Iterable<? extends ProjectionFunction> projections)
     {
@@ -64,7 +69,7 @@ public class GenericPageProcessor
         Block[] inputBlocks = page.getBlocks();
 
         for (; position < end && !pageBuilder.isFull(); position++) {
-            if (filterFunction.filter(position, page.getBlocks())) {
+            if (filterFunction.filter(position, inputBlocks)) {
                 pageBuilder.declarePosition();
                 for (int i = 0; i < projections.size(); i++) {
                     // todo: if the projection function increases the size of the data significantly, this could cause the servers to OOM
@@ -136,10 +141,20 @@ public class GenericPageProcessor
 
     private Block projectColumnarDictionary(Page inputPage, int[] selectedPositions, ProjectionFunction projection, Map<DictionaryId, DictionaryId> dictionarySourceIds)
     {
+        int inputChannel = getOnlyElement(projection.getInputChannels());
+        Block[] blocks = new Block[inputPage.getChannelCount()];
+
+        if (inputPage.getBlock(inputChannel) instanceof RunLengthEncodedBlock) {
+            RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) inputPage.getBlock(inputChannel);
+            BlockBuilder builder = projection.getType().createBlockBuilder(new BlockBuilderStatus(), 1);
+            blocks[inputChannel] = rleBlock.getValue();
+            projection.project(0, blocks, builder);
+            return new RunLengthEncodedBlock(builder.build(), selectedPositions.length);
+        }
+
         Block outputDictionary = projectDictionary(projection, inputPage);
         int[] outputIds = filterIds(projection, inputPage, selectedPositions);
 
-        int inputChannel = getOnlyElement(projection.getInputChannels());
         DictionaryBlock dictionaryBlock = (DictionaryBlock) inputPage.getBlock(inputChannel);
 
         DictionaryId sourceId = dictionarySourceIds.get(dictionaryBlock.getDictionarySourceId());
@@ -196,10 +211,16 @@ public class GenericPageProcessor
 
     private static boolean canDictionaryProcess(ProjectionFunction projection, Page inputPage)
     {
+        if (!projection.isDeterministic()) {
+            return false;
+        }
+
         Set<Integer> inputChannels = projection.getInputChannels();
-        return projection.isDeterministic()
-                && inputChannels.size() == 1
-                && (inputPage.getBlock(getOnlyElement(inputChannels)) instanceof DictionaryBlock);
+        if (inputChannels.size() != 1) {
+            return false;
+        }
+        Block block = inputPage.getBlock(getOnlyElement(inputChannels));
+        return block instanceof DictionaryBlock || block instanceof RunLengthEncodedBlock;
     }
 
     private Page getNonLazyPage(Page page)
@@ -228,8 +249,51 @@ public class GenericPageProcessor
     {
         int[] selected = new int[page.getPositionCount()];
         int index = 0;
+
+        if (filterFunction.getInputChannels().size() == 1) {
+            int channel = getOnlyElement(filterFunction.getInputChannels());
+            if (page.getBlock(channel) instanceof DictionaryBlock) {
+                DictionaryBlock dictionaryBlock = (DictionaryBlock) page.getBlock(channel);
+                Block dictionary = dictionaryBlock.getDictionary();
+
+                Block[] blocks = new Block[page.getPositionCount()];
+                blocks[channel] = dictionary;
+
+                boolean[] selectedDictionaryPositions;
+                if (inputFilterDictionary == dictionary) {
+                    selectedDictionaryPositions = filterResult;
+                }
+                else {
+                    selectedDictionaryPositions = new boolean[dictionary.getPositionCount()];
+                    for (int i = 0; i < dictionary.getPositionCount(); i++) {
+                        selectedDictionaryPositions[i] = filterFunction.filter(i, blocks);
+                    }
+                    inputFilterDictionary = dictionary;
+                    filterResult = selectedDictionaryPositions;
+                }
+
+                for (int i = 0; i < page.getPositionCount(); i++) {
+                    if (selectedDictionaryPositions[dictionaryBlock.getId(i)]) {
+                        selected[index] = i;
+                        index++;
+                    }
+                }
+                return copyOf(selected, index);
+            }
+            if (page.getBlock(channel) instanceof RunLengthEncodedBlock) {
+                RunLengthEncodedBlock rleBlock = (RunLengthEncodedBlock) page.getBlock(channel);
+                Block[] blocks = new Block[page.getPositionCount()];
+                blocks[channel] = rleBlock.getValue();
+                if (filterFunction.filter(0, blocks)) {
+                    return IntStream.range(0, page.getPositionCount()).toArray();
+                }
+                return new int[0];
+            }
+        }
+
+        Block[] blocks = page.getBlocks();
         for (int position = 0; position < page.getPositionCount(); position++) {
-            if (filterFunction.filter(position, page.getBlocks())) {
+            if (filterFunction.filter(position, blocks)) {
                 selected[index] = position;
                 index++;
             }

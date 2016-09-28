@@ -23,6 +23,7 @@ import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.ConnectorTableHandle;
 import com.facebook.presto.spi.ConnectorTableLayoutHandle;
+import com.facebook.presto.spi.connector.ConnectorPartitioningHandle;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
@@ -32,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
+import static com.facebook.presto.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
@@ -43,7 +45,7 @@ public class HandleResolver
     @Inject
     public HandleResolver()
     {
-        handleResolvers.put("remote", new RemoteHandleResolver());
+        handleResolvers.put(REMOTE_CONNECTOR_ID.toString(), new RemoteHandleResolver());
         handleResolvers.put("$system", new SystemHandleResolver());
         handleResolvers.put("$info_schema", new InformationSchemaHandleResolver());
     }
@@ -92,6 +94,11 @@ public class HandleResolver
         return getId(insertHandle, ConnectorHandleResolver::getInsertTableHandleClass);
     }
 
+    public String getId(ConnectorPartitioningHandle partitioningHandle)
+    {
+        return getId(partitioningHandle, ConnectorHandleResolver::getPartitioningHandleClass);
+    }
+
     public String getId(ConnectorTransactionHandle transactionHandle)
     {
         return getId(transactionHandle, ConnectorHandleResolver::getTransactionHandleClass);
@@ -130,6 +137,11 @@ public class HandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass(String id)
     {
         return resolverFor(id).getInsertTableHandleClass();
+    }
+
+    public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass(String id)
+    {
+        return resolverFor(id).getPartitioningHandleClass();
     }
 
     public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass(String id)

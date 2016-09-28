@@ -28,6 +28,7 @@ import com.facebook.presto.spi.ConnectorViewDefinition;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
+import com.facebook.presto.spi.security.Privilege;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -92,6 +93,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getTableMetadata(session, table);
+        }
+    }
+
+    @Override
+    public Optional<Object> getInfo(ConnectorTableLayoutHandle table)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getInfo(table);
         }
     }
 
@@ -276,6 +285,22 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.metadataDelete(session, tableHandle, tableLayoutHandle);
+        }
+    }
+
+    @Override
+    public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.grantTablePrivileges(session, tableName, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.revokeTablePrivileges(session, tableName, privileges, grantee, grantOption);
         }
     }
 

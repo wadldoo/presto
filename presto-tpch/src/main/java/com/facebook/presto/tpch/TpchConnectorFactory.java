@@ -16,8 +16,10 @@ package com.facebook.presto.tpch;
 import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -26,22 +28,19 @@ import com.facebook.presto.spi.transaction.IsolationLevel;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.util.Objects.requireNonNull;
 
 public class TpchConnectorFactory
         implements ConnectorFactory
 {
-    private final NodeManager nodeManager;
     private final int defaultSplitsPerNode;
 
-    public TpchConnectorFactory(NodeManager nodeManager)
+    public TpchConnectorFactory()
     {
-        this(nodeManager, Runtime.getRuntime().availableProcessors());
+        this(Runtime.getRuntime().availableProcessors());
     }
 
-    public TpchConnectorFactory(NodeManager nodeManager, int defaultSplitsPerNode)
+    public TpchConnectorFactory(int defaultSplitsPerNode)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
     }
 
@@ -58,9 +57,10 @@ public class TpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties)
+    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
+        NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
         {
@@ -79,13 +79,19 @@ public class TpchConnectorFactory
             @Override
             public ConnectorSplitManager getSplitManager()
             {
-                return new TpchSplitManager(connectorId, nodeManager, splitsPerNode);
+                return new TpchSplitManager(nodeManager, splitsPerNode);
             }
 
             @Override
             public ConnectorRecordSetProvider getRecordSetProvider()
             {
                 return new TpchRecordSetProvider();
+            }
+
+            @Override
+            public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+            {
+                return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
             }
         };
     }

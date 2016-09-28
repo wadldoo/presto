@@ -14,15 +14,16 @@
 package com.facebook.presto.server;
 
 import com.facebook.presto.SessionRepresentation;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.QueryState;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.spi.ErrorCode;
-import com.facebook.presto.spi.StandardErrorCode.ErrorType;
-import com.fasterxml.jackson.annotation.JsonCreator;
+import com.facebook.presto.spi.ErrorType;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.joda.time.DateTime;
 
@@ -42,6 +43,7 @@ public class BasicQueryInfo
     private final QueryId queryId;
     private final SessionRepresentation session;
     private final QueryState state;
+    private final MemoryPoolId memoryPool;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
     private final boolean scheduled;
@@ -50,37 +52,47 @@ public class BasicQueryInfo
     private final URI self;
     private final String query;
     private final Duration elapsedTime;
+    private final Duration executionTime;
+    private final Duration cpuTime;
     private final DateTime endTime;
     private final DateTime createTime;
+    private final DataSize currentMemory;
+    private final DataSize peakMemory;
+    private final double cumulativeMemory;
     private final int runningDrivers;
     private final int queuedDrivers;
     private final int completedDrivers;
     private final int totalDrivers;
 
-    @JsonCreator
     public BasicQueryInfo(
-            @JsonProperty("queryId") QueryId queryId,
-            @JsonProperty("session") SessionRepresentation session,
-            @JsonProperty("state") QueryState state,
-            @JsonProperty("errorType") ErrorType errorType,
-            @JsonProperty("errorCode") ErrorCode errorCode,
-            @JsonProperty("scheduled") boolean scheduled,
-            @JsonProperty("fullyBlocked") boolean fullyBlocked,
-            @JsonProperty("blockedReasons") Set<BlockedReason> blockedReasons,
-            @JsonProperty("self") URI self,
-            @JsonProperty("query") String query,
-            @JsonProperty("elapsedTime") Duration elapsedTime,
-            @JsonProperty("endTime") DateTime endTime,
-            @JsonProperty("createTime") DateTime createTime,
-            @JsonProperty("runningDrivers") int runningDrivers,
-            @JsonProperty("queuedDrivers") int queuedDrivers,
-            @JsonProperty("completedDrivers") int completedDrivers,
-            @JsonProperty("totalDrivers") int totalDrivers)
-
+            QueryId queryId,
+            SessionRepresentation session,
+            QueryState state,
+            MemoryPoolId memoryPool,
+            ErrorType errorType,
+            ErrorCode errorCode,
+            boolean scheduled,
+            boolean fullyBlocked,
+            Set<BlockedReason> blockedReasons,
+            URI self,
+            String query,
+            Duration elapsedTime,
+            Duration executionTime,
+            Duration cpuTime,
+            DateTime endTime,
+            DateTime createTime,
+            DataSize currentMemory,
+            DataSize peakMemory,
+            double cumulativeMemory,
+            int runningDrivers,
+            int queuedDrivers,
+            int completedDrivers,
+            int totalDrivers)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
         this.state = requireNonNull(state, "state is null");
+        this.memoryPool = memoryPool;
         this.errorType = errorType;
         this.errorCode = errorCode;
         this.scheduled = scheduled;
@@ -89,8 +101,13 @@ public class BasicQueryInfo
         this.self = requireNonNull(self, "self is null");
         this.query = requireNonNull(query, "query is null");
         this.elapsedTime = elapsedTime;
+        this.executionTime = executionTime;
+        this.cpuTime = cpuTime;
         this.endTime = endTime;
         this.createTime = createTime;
+        this.currentMemory = currentMemory;
+        this.peakMemory = peakMemory;
+        this.cumulativeMemory = cumulativeMemory;
 
         checkArgument(runningDrivers >= 0, "runningDrivers is less than zero");
         this.runningDrivers = runningDrivers;
@@ -107,6 +124,7 @@ public class BasicQueryInfo
         this(queryInfo.getQueryId(),
                 queryInfo.getSession(),
                 queryInfo.getState(),
+                queryInfo.getMemoryPool(),
                 queryInfo.getErrorType(),
                 queryInfo.getErrorCode(),
                 queryInfo.isScheduled(),
@@ -115,8 +133,13 @@ public class BasicQueryInfo
                 queryInfo.getSelf(),
                 queryInfo.getQuery(),
                 queryInfo.getQueryStats().getElapsedTime(),
+                queryInfo.getQueryStats().getExecutionTime(),
+                queryInfo.getQueryStats().getTotalCpuTime(),
                 queryInfo.getQueryStats().getEndTime(),
                 queryInfo.getQueryStats().getCreateTime(),
+                queryInfo.getQueryStats().getTotalMemoryReservation(),
+                queryInfo.getQueryStats().getPeakMemoryReservation(),
+                queryInfo.getQueryStats().getCumulativeMemory(),
                 queryInfo.getQueryStats().getRunningDrivers(),
                 queryInfo.getQueryStats().getQueuedDrivers(),
                 queryInfo.getQueryStats().getCompletedDrivers(),
@@ -139,6 +162,12 @@ public class BasicQueryInfo
     public QueryState getState()
     {
         return state;
+    }
+
+    @JsonProperty
+    public MemoryPoolId getMemoryPool()
+    {
+        return memoryPool;
     }
 
     @Nullable
@@ -186,9 +215,21 @@ public class BasicQueryInfo
     }
 
     @JsonProperty
-    public Duration getElapsedTime()
+    public long getExecutionTimeMillis()
     {
-        return elapsedTime;
+        return executionTime.toMillis();
+    }
+
+    @JsonProperty
+    public long getCpuTimeMillis()
+    {
+        return cpuTime.toMillis();
+    }
+
+    @JsonProperty
+    public long getElapsedTimeMillis()
+    {
+        return elapsedTime.toMillis();
     }
 
     @JsonProperty
@@ -225,6 +266,24 @@ public class BasicQueryInfo
     public DateTime getCreateTime()
     {
         return createTime;
+    }
+
+    @JsonProperty
+    public double getCumulativeMemory()
+    {
+        return cumulativeMemory;
+    }
+
+    @JsonProperty
+    public long getCurrentMemoryBytes()
+    {
+        return currentMemory.toBytes();
+    }
+
+    @JsonProperty
+    public long getPeakMemoryBytes()
+    {
+        return peakMemory.toBytes();
     }
 
     @Override

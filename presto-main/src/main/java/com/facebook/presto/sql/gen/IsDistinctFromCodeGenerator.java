@@ -17,8 +17,8 @@ import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.control.IfStatement;
-import com.facebook.presto.metadata.OperatorType;
 import com.facebook.presto.metadata.Signature;
+import com.facebook.presto.spi.function.OperatorType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.RowExpression;
 import com.facebook.presto.type.UnknownType;
@@ -66,6 +66,8 @@ public class IsDistinctFromCodeGenerator
             // the generated block should be unreachable. However, a boolean need to be pushed to balance the stack
             neitherSideIsNull = new BytecodeBlock()
                     .comment("unreachable code")
+                    .pop(rightType.getJavaType())
+                    .pop(leftType.getJavaType())
                     .push(false);
         }
         else {
@@ -97,8 +99,8 @@ public class IsDistinctFromCodeGenerator
                                 .append(new IfStatement()
                                         .condition(wasNull)
                                         .ifTrue(new BytecodeBlock()
-                                                .pop(leftType.getJavaType())
                                                 .pop(rightType.getJavaType())
+                                                .pop(leftType.getJavaType())
                                                 .push(true))
                                         .ifFalse(neitherSideIsNull))))
                 .append(wasNull.set(constantFalse()));

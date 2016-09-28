@@ -19,11 +19,11 @@ import com.facebook.presto.Session.SessionBuilder;
 import com.facebook.presto.metadata.MetadataManager;
 import com.facebook.presto.security.AllowAllAccessControl;
 import com.facebook.presto.spi.PrestoException;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.sql.tree.Commit;
 import com.facebook.presto.transaction.TransactionId;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Throwables;
-import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -37,7 +37,12 @@ import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static com.facebook.presto.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static com.facebook.presto.transaction.TransactionManager.createTestTransactionManager;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestCommitTask
 {
@@ -61,14 +66,14 @@ public class TestCommitTask
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         QueryStateMachine stateMachine = QueryStateMachine.begin(new QueryId("query"), "COMMIT", session, URI.create("fake://uri"), true, transactionManager, executor);
-        Assert.assertTrue(stateMachine.getSession().getTransactionId().isPresent());
-        Assert.assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
+        assertTrue(stateMachine.getSession().getTransactionId().isPresent());
+        assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
-        Assert.assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
+        assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
 
-        Assert.assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+        assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
     }
 
     @Test
@@ -83,20 +88,20 @@ public class TestCommitTask
 
         try {
             try {
-                new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
-                Assert.fail();
+                new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
+                fail();
             }
             catch (CompletionException e) {
                 throw Throwables.propagate(e.getCause());
             }
         }
         catch (PrestoException e) {
-            Assert.assertEquals(e.getErrorCode(), NOT_IN_TRANSACTION.toErrorCode());
+            assertEquals(e.getErrorCode(), NOT_IN_TRANSACTION.toErrorCode());
         }
-        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
-        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertFalse(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId());
+        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
 
-        Assert.assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+        assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
     }
 
     @Test
@@ -112,20 +117,20 @@ public class TestCommitTask
 
         try {
             try {
-                new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine).join();
-                Assert.fail();
+                new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()).join();
+                fail();
             }
             catch (CompletionException e) {
                 throw Throwables.propagate(e.getCause());
             }
         }
         catch (PrestoException e) {
-            Assert.assertEquals(e.getErrorCode(), UNKNOWN_TRANSACTION.toErrorCode());
+            assertEquals(e.getErrorCode(), UNKNOWN_TRANSACTION.toErrorCode());
         }
-        Assert.assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId()); // Still issue clear signal
-        Assert.assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
+        assertTrue(stateMachine.getQueryInfoWithoutDetails().isClearTransactionId()); // Still issue clear signal
+        assertFalse(stateMachine.getQueryInfoWithoutDetails().getStartedTransactionId().isPresent());
 
-        Assert.assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
+        assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
     }
 
     private static SessionBuilder sessionBuilder()

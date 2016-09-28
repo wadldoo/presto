@@ -14,7 +14,6 @@
 package com.facebook.presto.connector.informationSchema;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.metadata.InternalTable;
 import com.facebook.presto.metadata.Metadata;
 import com.facebook.presto.metadata.OperatorNotFoundException;
@@ -33,7 +32,9 @@ import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.Constraint;
 import com.facebook.presto.spi.FixedPageSource;
 import com.facebook.presto.spi.Page;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.spi.SchemaTableName;
+import com.facebook.presto.spi.TableNotFoundException;
 import com.facebook.presto.spi.block.Block;
 import com.facebook.presto.spi.connector.ConnectorPageSourceProvider;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
@@ -61,7 +62,8 @@ import static com.facebook.presto.connector.informationSchema.InformationSchemaM
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_TABLES;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.TABLE_VIEWS;
 import static com.facebook.presto.connector.informationSchema.InformationSchemaMetadata.informationSchemaTableColumns;
-import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
+import static com.facebook.presto.spi.type.VarcharType.createUnboundedVarcharType;
+import static com.facebook.presto.spi.type.Varchars.isVarcharType;
 import static com.facebook.presto.util.Types.checkType;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Sets.union;
@@ -241,7 +243,9 @@ public class InformationSchemaPageSourceProvider
         InternalTable.Builder table = InternalTable.builder(informationSchemaTableColumns(TABLE_INTERNAL_PARTITIONS));
 
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
-        checkArgument(tableHandle.isPresent(), "Table %s does not exist", tableName);
+        if (!tableHandle.isPresent()) {
+            throw new TableNotFoundException(tableName.asSchemaTableName());
+        }
 
         List<TableLayoutResult> layouts = metadata.getLayouts(session, tableHandle.get(), Constraint.<ColumnHandle>alwaysTrue(), Optional.empty());
 
@@ -251,7 +255,7 @@ public class InformationSchemaPageSourceProvider
             for (ColumnHandle columnHandle : columnHandles.keySet()) {
                 try {
                     ColumnMetadata columnMetadata = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
-                    Signature operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), VARCHAR);
+                    Signature operator = metadata.getFunctionRegistry().getCoercion(columnMetadata.getType(), createUnboundedVarcharType());
                     MethodHandle methodHandle = metadata.getFunctionRegistry().getScalarFunctionImplementation(operator).getMethodHandle();
                     methodHandles.put(columnHandle, methodHandle);
                 }
@@ -261,9 +265,9 @@ public class InformationSchemaPageSourceProvider
             }
 
             TableLayout layout = Iterables.getOnlyElement(layouts).getLayout();
-            layout.getDiscretePredicates().ifPresent(domains -> {
+            layout.getDiscretePredicates().ifPresent(predicates -> {
                 int partitionNumber = 1;
-                for (TupleDomain<ColumnHandle> domain : domains) {
+                for (TupleDomain<ColumnHandle> domain : predicates.getPredicates()) {
                     for (Entry<ColumnHandle, NullableValue> entry : TupleDomain.extractFixedValues(domain).get().entrySet()) {
                         ColumnHandle columnHandle = entry.getKey();
                         String columnName = columnHandles.get(columnHandle);
@@ -322,7 +326,7 @@ public class InformationSchemaPageSourceProvider
         if (value == null || value.getValue() == null) {
             return Optional.empty();
         }
-        if (value.getType().equals(VARCHAR)) {
+        if (isVarcharType(value.getType())) {
             return Optional.of(((Slice) value.getValue()).toStringUtf8().toLowerCase(ENGLISH));
         }
         return Optional.empty();

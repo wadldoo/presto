@@ -25,6 +25,7 @@ import com.facebook.presto.metadata.Signature;
 import com.facebook.presto.operator.scalar.ScalarFunctionImplementation;
 import com.facebook.presto.spi.type.BigintType;
 import com.facebook.presto.spi.type.DateType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.RowExpression;
@@ -43,10 +44,11 @@ import java.util.Set;
 
 import static com.facebook.presto.bytecode.control.LookupSwitch.lookupSwitchBuilder;
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantFalse;
+import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.instruction.JumpInstruction.jump;
-import static com.facebook.presto.metadata.OperatorType.EQUAL;
-import static com.facebook.presto.metadata.OperatorType.HASH_CODE;
 import static com.facebook.presto.metadata.Signature.internalOperator;
+import static com.facebook.presto.spi.function.OperatorType.EQUAL;
+import static com.facebook.presto.spi.function.OperatorType.HASH_CODE;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
@@ -82,7 +84,7 @@ public class InCodeGenerator
             return SwitchGenerationCase.SET_CONTAINS;
         }
 
-        if (!(type instanceof BigintType || type instanceof DateType)) {
+        if (!(type instanceof IntegerType || type instanceof BigintType || type instanceof DateType)) {
             return SwitchGenerationCase.HASH_SWITCH;
         }
         for (RowExpression expression : values) {
@@ -96,7 +98,7 @@ public class InCodeGenerator
             if (constant == null) {
                 continue;
             }
-            long longConstant = (Long) constant;
+            long longConstant = ((Number) constant).longValue();
             if (longConstant < Integer.MIN_VALUE || longConstant > Integer.MAX_VALUE) {
                 return SwitchGenerationCase.HASH_SWITCH;
             }
@@ -142,7 +144,7 @@ public class InCodeGenerator
                         break;
                     case HASH_SWITCH:
                         try {
-                            int hashCode = Ints.checkedCast((Long) hashCodeFunction.invoke(object));
+                            int hashCode = Ints.checkedCast(Long.hashCode((Long) hashCodeFunction.invoke(object)));
                             hashBucketsBuilder.put(hashCode, testBytecode);
                         }
                         catch (Throwable throwable) {
@@ -209,7 +211,7 @@ public class InCodeGenerator
                         .comment("lookupSwitch(hashCode(<stackValue>))")
                         .dup(javaType)
                         .append(invoke(hashCodeBinding, hashCodeSignature))
-                        .longToInt()
+                        .invokeStatic(Long.class, "hashCode", int.class, long.class)
                         .append(switchBuilder.build())
                         .append(switchCaseBlocks);
                 break;
@@ -278,7 +280,7 @@ public class InCodeGenerator
             Collection<BytecodeNode> testValues,
             boolean checkForNulls)
     {
-        Variable caseWasNull = null;
+        Variable caseWasNull = null; // caseWasNull is set to true the first time a null in `testValues` is encountered
         if (checkForNulls) {
             caseWasNull = scope.createTempVariable(boolean.class);
         }
@@ -318,10 +320,15 @@ public class InCodeGenerator
                     .append(testNode);
 
             if (checkForNulls) {
-                test.condition()
-                        .append(wasNull)
-                        .putVariable(caseWasNull)
-                        .append(ifWasNullPopAndGoto(scope, elseLabel, void.class, type.getJavaType(), type.getJavaType()));
+                IfStatement wasNullCheck = new IfStatement("if wasNull, set caseWasNull to true, clear wasNull, pop 2 values of type, and goto next test value");
+                wasNullCheck.condition(wasNull);
+                wasNullCheck.ifTrue(new BytecodeBlock()
+                        .append(caseWasNull.set(constantTrue()))
+                        .append(wasNull.set(constantFalse()))
+                        .pop(type.getJavaType())
+                        .pop(type.getJavaType())
+                        .gotoLabel(elseLabel));
+                test.condition().append(wasNullCheck);
             }
             test.condition()
                     .append(invoke(equalsFunction, EQUAL.name()));

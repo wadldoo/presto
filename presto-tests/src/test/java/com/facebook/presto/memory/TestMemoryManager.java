@@ -14,11 +14,11 @@
 package com.facebook.presto.memory;
 
 import com.facebook.presto.Session;
-import com.facebook.presto.execution.QueryId;
 import com.facebook.presto.execution.QueryInfo;
 import com.facebook.presto.execution.TaskInfo;
 import com.facebook.presto.operator.DriverStats;
 import com.facebook.presto.server.testing.TestingPrestoServer;
+import com.facebook.presto.spi.QueryId;
 import com.facebook.presto.testing.QueryRunner;
 import com.facebook.presto.tests.DistributedQueryRunner;
 import com.facebook.presto.tpch.TpchPlugin;
@@ -301,6 +301,19 @@ public class TestMemoryManager
                 .put("task.operator-pre-allocated-memory", "0B")
                 .build();
         try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
+            queryRunner.execute(SESSION, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
+        }
+    }
+
+    @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Exceeded CPU limit of .*")
+    public void testQueryCpuLimit()
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("query.max-cpu-time", "1ms")
+                .build();
+        try (QueryRunner queryRunner = createQueryRunner(SESSION, properties)) {
+            // the following test query is known to run for a long time
             queryRunner.execute(SESSION, "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
         }
     }

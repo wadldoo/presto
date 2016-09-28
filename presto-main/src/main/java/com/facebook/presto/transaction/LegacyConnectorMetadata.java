@@ -17,6 +17,7 @@ import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ColumnMetadata;
 import com.facebook.presto.spi.ConnectorIndexResolver;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
+import com.facebook.presto.spi.ConnectorNewTableLayout;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorResolvedIndex;
 import com.facebook.presto.spi.ConnectorSession;
@@ -31,6 +32,7 @@ import com.facebook.presto.spi.SchemaTableName;
 import com.facebook.presto.spi.SchemaTablePrefix;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
 import com.facebook.presto.spi.predicate.TupleDomain;
+import com.facebook.presto.spi.security.Privilege;
 import io.airlift.slice.Slice;
 
 import java.util.Collection;
@@ -154,7 +156,13 @@ public class LegacyConnectorMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    public final Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         checkState(rollbackAction.get() == null, "Cannot begin a new write while in an existing one");
         ConnectorOutputTableHandle outputTableHandle = metadata.beginCreateTable(session, tableMetadata);
@@ -250,6 +258,18 @@ public class LegacyConnectorMetadata
     public Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         return indexResolver.flatMap(indexResolver -> Optional.ofNullable(indexResolver.resolveIndex(session, tableHandle, indexableColumns, outputColumns, tupleDomain)));
+    }
+
+    @Override
+    public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        metadata.grantTablePrivileges(session, tableName, privileges, grantee, grantOption);
+    }
+
+    @Override
+    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, String grantee, boolean grantOption)
+    {
+        metadata.revokeTablePrivileges(session, tableName, privileges, grantee, grantOption);
     }
 
     private void setRollback(Runnable action)

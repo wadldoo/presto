@@ -13,13 +13,13 @@
  */
 package com.facebook.presto.server.testing;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.connector.ConnectorManager;
+import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.QueryManager;
 import com.facebook.presto.execution.TaskManager;
-import com.facebook.presto.execution.scheduler.FlatNetworkTopology;
-import com.facebook.presto.execution.scheduler.LegacyNetworkTopology;
-import com.facebook.presto.execution.scheduler.NetworkTopology;
-import com.facebook.presto.execution.scheduler.NodeSchedulerConfig;
+import com.facebook.presto.execution.resourceGroups.InternalResourceGroupManager;
+import com.facebook.presto.execution.resourceGroups.ResourceGroupManager;
 import com.facebook.presto.memory.ClusterMemoryManager;
 import com.facebook.presto.memory.LocalMemoryManager;
 import com.facebook.presto.metadata.AllNodes;
@@ -37,6 +37,7 @@ import com.facebook.presto.split.SplitManager;
 import com.facebook.presto.sql.parser.SqlParserOptions;
 import com.facebook.presto.testing.ProcedureTester;
 import com.facebook.presto.testing.TestingAccessControlManager;
+import com.facebook.presto.testing.TestingEventListenerManager;
 import com.facebook.presto.transaction.TransactionManager;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -79,9 +80,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 
-import static com.facebook.presto.execution.scheduler.NodeSchedulerConfig.LEGACY_NETWORK_TOPOLOGY;
-import static com.facebook.presto.server.ConditionalModule.installModuleIf;
 import static com.facebook.presto.server.testing.FileUtils.deleteRecursively;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
 import static java.lang.Integer.parseInt;
@@ -100,6 +100,7 @@ public class TestingPrestoServer
     private final Metadata metadata;
     private final TestingAccessControlManager accessControl;
     private final ProcedureTester procedureTester;
+    private final Optional<InternalResourceGroupManager> resourceGroupManager;
     private final SplitManager splitManager;
     private final ClusterMemoryManager clusterMemoryManager;
     private final LocalMemoryManager localMemoryManager;
@@ -168,10 +169,10 @@ public class TestingPrestoServer
                 .put("coordinator", String.valueOf(coordinator))
                 .put("presto.version", "testversion")
                 .put("http-client.max-threads", "16")
-                .put("task.default-concurrency", "4")
+                .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
                 .put("exchange.client-threads", "4")
-                .put("analyzer.experimental-syntax-enabled", "true");
+                .put("experimental-syntax-enabled", "true");
 
         if (!properties.containsKey("query.max-memory-per-node")) {
             serverProperties.put("query.max-memory-per-node", "512MB");
@@ -192,17 +193,11 @@ public class TestingPrestoServer
                 .add(new EventModule())
                 .add(new TraceTokenModule())
                 .add(new ServerMainModule(new SqlParserOptions()))
-                .add(installModuleIf(
-                        NodeSchedulerConfig.class,
-                        config -> LEGACY_NETWORK_TOPOLOGY.equalsIgnoreCase(config.getNetworkTopology()),
-                        binder -> binder.bind(NetworkTopology.class).to(LegacyNetworkTopology.class).in(Scopes.SINGLETON)))
-                .add(installModuleIf(
-                        NodeSchedulerConfig.class,
-                        config -> "flat".equalsIgnoreCase(config.getNetworkTopology()),
-                        binder -> binder.bind(NetworkTopology.class).to(FlatNetworkTopology.class).in(Scopes.SINGLETON)))
                 .add(binder -> {
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(TestingEventListenerManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlManager.class).to(TestingAccessControlManager.class).in(Scopes.SINGLETON);
+                    binder.bind(EventListenerManager.class).to(TestingEventListenerManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
@@ -250,7 +245,14 @@ public class TestingPrestoServer
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
         splitManager = injector.getInstance(SplitManager.class);
-        clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
+        if (coordinator) {
+            resourceGroupManager = Optional.of((InternalResourceGroupManager) injector.getInstance(ResourceGroupManager.class));
+            clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
+        }
+        else {
+            resourceGroupManager = Optional.empty();
+            clusterMemoryManager = null;
+        }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
@@ -290,15 +292,16 @@ public class TestingPrestoServer
         return queryManager;
     }
 
-    public void createCatalog(String catalogName, String connectorName)
+    public ConnectorId createCatalog(String catalogName, String connectorName)
     {
-        createCatalog(catalogName, connectorName, ImmutableMap.<String, String>of());
+        return createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
-    public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
+    public ConnectorId createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        connectorManager.createConnection(catalogName, connectorName, properties);
-        updateDatasourcesAnnouncement(announcer, catalogName);
+        ConnectorId connectorId = connectorManager.createConnection(catalogName, connectorName, properties);
+        updateConnectorIdAnnouncement(announcer, connectorId);
+        return connectorId;
     }
 
     public Path getBaseDataDir()
@@ -346,6 +349,11 @@ public class TestingPrestoServer
         return splitManager;
     }
 
+    public Optional<InternalResourceGroupManager> getResourceGroupManager()
+    {
+        return resourceGroupManager;
+    }
+
     public LocalMemoryManager getLocalMemoryManager()
     {
         return localMemoryManager;
@@ -353,6 +361,7 @@ public class TestingPrestoServer
 
     public ClusterMemoryManager getClusterMemoryManager()
     {
+        checkState(coordinator, "not a coordinator");
         return clusterMemoryManager;
     }
 
@@ -383,26 +392,26 @@ public class TestingPrestoServer
         return nodeManager.getAllNodes();
     }
 
-    public Set<Node> getActiveNodesWithConnector(String connectorName)
+    public Set<Node> getActiveNodesWithConnector(ConnectorId connectorId)
     {
-        return nodeManager.getActiveDatasourceNodes(connectorName);
+        return nodeManager.getActiveConnectorNodes(connectorId);
     }
 
-    private static void updateDatasourcesAnnouncement(Announcer announcer, String connectorId)
+    private static void updateConnectorIdAnnouncement(Announcer announcer, ConnectorId connectorId)
     {
         //
-        // This code was copied from PrestoServer, and is a hack that should be removed when the data source property is removed
+        // This code was copied from PrestoServer, and is a hack that should be removed when the connectorId property is removed
         //
 
         // get existing announcement
         ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
 
-        // update datasources property
+        // update connectorIds property
         Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
-        String property = nullToEmpty(properties.get("datasources"));
-        Set<String> datasources = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
-        datasources.add(connectorId);
-        properties.put("datasources", Joiner.on(',').join(datasources));
+        String property = nullToEmpty(properties.get("connectorIds"));
+        Set<String> connectorIds = new LinkedHashSet<>(Splitter.on(',').trimResults().omitEmptyStrings().splitToList(property));
+        connectorIds.add(connectorId.toString());
+        properties.put("connectorIds", Joiner.on(',').join(connectorIds));
 
         // update announcement
         announcer.removeServiceAnnouncement(announcement.getId());

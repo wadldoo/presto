@@ -13,8 +13,11 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
+import com.facebook.presto.spi.memory.MemoryPoolInfo;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableMap;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -54,6 +57,11 @@ public class ClusterMemoryPool
     public ClusterMemoryPool(MemoryPoolId id)
     {
         this.id = requireNonNull(id, "id is null");
+    }
+
+    public synchronized MemoryPoolInfo getInfo()
+    {
+        return new MemoryPoolInfo(totalDistributedBytes, freeDistributedBytes, ImmutableMap.copyOf(queryMemoryReservations));
     }
 
     public MemoryPoolId getId()

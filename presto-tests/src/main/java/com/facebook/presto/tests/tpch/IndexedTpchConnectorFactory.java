@@ -17,13 +17,16 @@ import com.facebook.presto.spi.ConnectorHandleResolver;
 import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.SystemTable;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.connector.ConnectorIndexProvider;
 import com.facebook.presto.spi.connector.ConnectorMetadata;
+import com.facebook.presto.spi.connector.ConnectorNodePartitioningProvider;
 import com.facebook.presto.spi.connector.ConnectorRecordSetProvider;
 import com.facebook.presto.spi.connector.ConnectorSplitManager;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.transaction.IsolationLevel;
+import com.facebook.presto.tpch.TpchNodePartitioningProvider;
 import com.facebook.presto.tpch.TpchRecordSetProvider;
 import com.facebook.presto.tpch.TpchSplitManager;
 import com.facebook.presto.tpch.TpchTransactionHandle;
@@ -38,13 +41,11 @@ import static java.util.Objects.requireNonNull;
 public class IndexedTpchConnectorFactory
         implements ConnectorFactory
 {
-    private final NodeManager nodeManager;
     private final TpchIndexSpec indexSpec;
     private final int defaultSplitsPerNode;
 
-    public IndexedTpchConnectorFactory(NodeManager nodeManager, TpchIndexSpec indexSpec, int defaultSplitsPerNode)
+    public IndexedTpchConnectorFactory(TpchIndexSpec indexSpec, int defaultSplitsPerNode)
     {
-        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.indexSpec = requireNonNull(indexSpec, "indexSpec is null");
         this.defaultSplitsPerNode = defaultSplitsPerNode;
     }
@@ -62,10 +63,11 @@ public class IndexedTpchConnectorFactory
     }
 
     @Override
-    public Connector create(String connectorId, Map<String, String> properties)
+    public Connector create(String connectorId, Map<String, String> properties, ConnectorContext context)
     {
         int splitsPerNode = getSplitsPerNode(properties);
         TpchIndexedData indexedData = new TpchIndexedData(connectorId, indexSpec);
+        NodeManager nodeManager = context.getNodeManager();
 
         return new Connector()
         {
@@ -84,7 +86,7 @@ public class IndexedTpchConnectorFactory
             @Override
             public ConnectorSplitManager getSplitManager()
             {
-                return new TpchSplitManager(connectorId, nodeManager, splitsPerNode);
+                return new TpchSplitManager(nodeManager, splitsPerNode);
             }
 
             @Override
@@ -103,6 +105,12 @@ public class IndexedTpchConnectorFactory
             public Set<SystemTable> getSystemTables()
             {
                 return ImmutableSet.of(new ExampleSystemTable());
+            }
+
+            @Override
+            public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+            {
+                return new TpchNodePartitioningProvider(nodeManager, splitsPerNode);
             }
         };
     }

@@ -19,6 +19,7 @@ import org.apache.hadoop.hive.metastore.api.HiveObjectRef;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.PrincipalPrivilegeSet;
 import org.apache.hadoop.hive.metastore.api.PrincipalType;
+import org.apache.hadoop.hive.metastore.api.PrivilegeBag;
 import org.apache.hadoop.hive.metastore.api.Role;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
@@ -140,17 +141,17 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public boolean dropPartitionByName(String databaseName, String tableName, String partitionName, boolean deleteData)
+    public void alterPartition(String databaseName, String tableName, Partition partition)
             throws TException
     {
-        return client.drop_partition_by_name(databaseName, tableName, partitionName, deleteData);
+        client.alter_partition(databaseName, tableName, partition);
     }
 
     @Override
-    public Partition getPartitionByName(String databaseName, String tableName, String partitionName)
+    public Partition getPartition(String databaseName, String tableName, List<String> partitionValues)
             throws TException
     {
-        return client.get_partition_by_name(databaseName, tableName, partitionName);
+        return client.get_partition(databaseName, tableName, partitionValues);
     }
 
     @Override
@@ -172,5 +173,26 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_privilege_set(hiveObject, userName, groupNames);
+    }
+
+    @Override
+    public List<String> getRoleNames()
+            throws TException
+    {
+        return client.get_role_names();
+    }
+
+    @Override
+    public boolean grantPrivileges(PrivilegeBag privilegeBag)
+            throws TException
+    {
+        return client.grant_privileges(privilegeBag);
+    }
+
+    @Override
+    public boolean revokePrivileges(PrivilegeBag privilegeBag)
+            throws TException
+    {
+        return client.revoke_privileges(privilegeBag);
     }
 }

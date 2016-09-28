@@ -13,7 +13,6 @@
  */
 package com.facebook.presto.spi.type;
 
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -27,17 +26,22 @@ public class TypeSignatureParameter
 
     public static TypeSignatureParameter of(TypeSignature typeSignature)
     {
-        return new TypeSignatureParameter(ParameterKind.TYPE_SIGNATURE, typeSignature);
+        return new TypeSignatureParameter(ParameterKind.TYPE, typeSignature);
     }
 
     public static TypeSignatureParameter of(long longLiteral)
     {
-        return new TypeSignatureParameter(ParameterKind.LONG_LITERAL, longLiteral);
+        return new TypeSignatureParameter(ParameterKind.LONG, longLiteral);
     }
 
     public static TypeSignatureParameter of(NamedTypeSignature namedTypeSignature)
     {
-        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE_SIGNATURE, namedTypeSignature);
+        return new TypeSignatureParameter(ParameterKind.NAMED_TYPE, namedTypeSignature);
+    }
+
+    public static TypeSignatureParameter of(String variable)
+    {
+        return new TypeSignatureParameter(ParameterKind.VARIABLE, variable);
     }
 
     private TypeSignatureParameter(ParameterKind kind, Object value)
@@ -59,49 +63,77 @@ public class TypeSignatureParameter
 
     public boolean isTypeSignature()
     {
-        return kind == ParameterKind.TYPE_SIGNATURE;
+        return kind == ParameterKind.TYPE;
     }
 
     public boolean isLongLiteral()
     {
-        return kind == ParameterKind.LONG_LITERAL;
+        return kind == ParameterKind.LONG;
     }
 
     public boolean isNamedTypeSignature()
     {
-        return kind == ParameterKind.NAMED_TYPE_SIGNATURE;
+        return kind == ParameterKind.NAMED_TYPE;
+    }
+
+    public boolean isVariable()
+    {
+        return kind == ParameterKind.VARIABLE;
     }
 
     private <A> A getValue(ParameterKind expectedParameterKind, Class<A> target)
     {
-        verify(kind == expectedParameterKind, format("ParameterKind is [%s] but expected [%s]", kind, expectedParameterKind));
+        if (kind != expectedParameterKind) {
+            throw new IllegalArgumentException(format("ParameterKind is [%s] but expected [%s]", kind, expectedParameterKind));
+        }
         return target.cast(value);
     }
 
     public TypeSignature getTypeSignature()
     {
-        return getValue(ParameterKind.TYPE_SIGNATURE, TypeSignature.class);
+        return getValue(ParameterKind.TYPE, TypeSignature.class);
     }
 
     public Long getLongLiteral()
     {
-        return getValue(ParameterKind.LONG_LITERAL, Long.class);
+        return getValue(ParameterKind.LONG, Long.class);
     }
 
     public NamedTypeSignature getNamedTypeSignature()
     {
-        return getValue(ParameterKind.NAMED_TYPE_SIGNATURE, NamedTypeSignature.class);
+        return getValue(ParameterKind.NAMED_TYPE, NamedTypeSignature.class);
+    }
+
+    public String getVariable()
+    {
+        return getValue(ParameterKind.VARIABLE, String.class);
     }
 
     public Optional<TypeSignature> getTypeSignatureOrNamedTypeSignature()
     {
         switch (kind) {
-            case TYPE_SIGNATURE:
+            case TYPE:
                 return Optional.of(getTypeSignature());
-            case NAMED_TYPE_SIGNATURE:
+            case NAMED_TYPE:
                 return Optional.of(getNamedTypeSignature().getTypeSignature());
             default:
                 return Optional.empty();
+        }
+    }
+
+    public boolean isCalculated()
+    {
+        switch (kind) {
+            case TYPE:
+                return getTypeSignature().isCalculated();
+            case NAMED_TYPE:
+                return getNamedTypeSignature().getTypeSignature().isCalculated();
+            case LONG:
+                return false;
+            case VARIABLE:
+                return true;
+            default:
+                throw new IllegalArgumentException("Unexpected parameter kind: " + kind);
         }
     }
 
@@ -125,26 +157,5 @@ public class TypeSignatureParameter
     public int hashCode()
     {
         return Objects.hash(kind, value);
-    }
-
-    public TypeSignatureParameter bindParameters(Map<String, Type> boundParameters)
-    {
-        switch (kind) {
-            case TYPE_SIGNATURE:
-                return TypeSignatureParameter.of(getTypeSignature().bindParameters(boundParameters));
-            case NAMED_TYPE_SIGNATURE:
-                return TypeSignatureParameter.of(new NamedTypeSignature(
-                        getNamedTypeSignature().getName(),
-                        getNamedTypeSignature().getTypeSignature().bindParameters(boundParameters)));
-            default:
-                return this;
-        }
-    }
-
-    private static void verify(boolean argument, String message)
-    {
-        if (!argument) {
-            throw new AssertionError(message);
-        }
     }
 }

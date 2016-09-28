@@ -40,7 +40,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.transform;
-import static io.airlift.units.DataSize.Unit.BYTE;
+import static io.airlift.units.DataSize.succinctBytes;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
@@ -271,6 +272,8 @@ public class TaskContext
 
         List<PipelineStats> pipelineStats = ImmutableList.copyOf(transform(pipelineContexts, PipelineContext::getPipelineStats));
 
+        long lastExecutionEndTime = 0;
+
         int totalDrivers = 0;
         int queuedDrivers = 0;
         int queuedPartitionedDrivers = 0;
@@ -293,6 +296,10 @@ public class TaskContext
         long outputPositions = 0;
 
         for (PipelineStats pipeline : pipelineStats) {
+            if (pipeline.getLastEndTime() != null) {
+                lastExecutionEndTime = max(pipeline.getLastEndTime().getMillis(), lastExecutionEndTime);
+            }
+
             totalDrivers += pipeline.getTotalDrivers();
             queuedDrivers += pipeline.getQueuedDrivers();
             queuedPartitionedDrivers += pipeline.getQueuedPartitionedDrivers();
@@ -320,7 +327,7 @@ public class TaskContext
         }
 
         long startNanos = this.startNanos.get();
-        if (startNanos < createNanos) {
+        if (startNanos == 0) {
             startNanos = System.nanoTime();
         }
         Duration queuedTime = new Duration(startNanos - createNanos, NANOSECONDS);
@@ -355,6 +362,7 @@ public class TaskContext
                 taskStateMachine.getCreatedTime(),
                 executionStartTime.get(),
                 lastExecutionStartTime.get(),
+                lastExecutionEndTime == 0 ? null : new DateTime(lastExecutionEndTime),
                 executionEndTime.get(),
                 elapsedTime.convertToMostSuccinctTimeUnit(),
                 queuedTime.convertToMostSuccinctTimeUnit(),
@@ -365,19 +373,19 @@ public class TaskContext
                 runningPartitionedDrivers,
                 completedDrivers,
                 cumulativeMemory.get(),
-                new DataSize(memoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
-                new DataSize(systemMemoryReservation.get(), BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(memoryReservation.get()),
+                succinctBytes(systemMemoryReservation.get()),
                 new Duration(totalScheduledTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalCpuTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalUserTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 new Duration(totalBlockedTime, NANOSECONDS).convertToMostSuccinctTimeUnit(),
                 fullyBlocked && (runningDrivers > 0 || runningPartitionedDrivers > 0),
                 blockedReasons,
-                new DataSize(rawInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(rawInputDataSize),
                 rawInputPositions,
-                new DataSize(processedInputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(processedInputDataSize),
                 processedInputPositions,
-                new DataSize(outputDataSize, BYTE).convertToMostSuccinctDataSize(),
+                succinctBytes(outputDataSize),
                 outputPositions,
                 pipelineStats);
     }

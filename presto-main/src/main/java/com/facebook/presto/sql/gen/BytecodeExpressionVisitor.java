@@ -15,12 +15,15 @@ package com.facebook.presto.sql.gen;
 
 import com.facebook.presto.bytecode.BytecodeBlock;
 import com.facebook.presto.bytecode.BytecodeNode;
+import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.Scope;
 import com.facebook.presto.metadata.FunctionRegistry;
 import com.facebook.presto.sql.relational.CallExpression;
 import com.facebook.presto.sql.relational.ConstantExpression;
 import com.facebook.presto.sql.relational.InputReferenceExpression;
 import com.facebook.presto.sql.relational.RowExpressionVisitor;
+
+import java.util.Map;
 
 import static com.facebook.presto.bytecode.expression.BytecodeExpressions.constantTrue;
 import static com.facebook.presto.bytecode.instruction.Constant.loadBoolean;
@@ -32,11 +35,14 @@ import static com.facebook.presto.bytecode.instruction.Constant.loadString;
 import static com.facebook.presto.sql.gen.BytecodeUtils.loadConstant;
 import static com.facebook.presto.sql.relational.Signatures.CAST;
 import static com.facebook.presto.sql.relational.Signatures.COALESCE;
+import static com.facebook.presto.sql.relational.Signatures.DEREFERENCE;
 import static com.facebook.presto.sql.relational.Signatures.IF;
 import static com.facebook.presto.sql.relational.Signatures.IN;
 import static com.facebook.presto.sql.relational.Signatures.IS_NULL;
 import static com.facebook.presto.sql.relational.Signatures.NULL_IF;
+import static com.facebook.presto.sql.relational.Signatures.ROW_CONSTRUCTOR;
 import static com.facebook.presto.sql.relational.Signatures.SWITCH;
+import static com.facebook.presto.sql.relational.Signatures.TRY;
 
 public class BytecodeExpressionVisitor
         implements RowExpressionVisitor<Scope, BytecodeNode>
@@ -45,17 +51,20 @@ public class BytecodeExpressionVisitor
     private final CachedInstanceBinder cachedInstanceBinder;
     private final RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler;
     private final FunctionRegistry registry;
+    private final Map<CallExpression, MethodDefinition> tryExpressionsMap;
 
     public BytecodeExpressionVisitor(
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpressionVisitor<Scope, BytecodeNode> fieldReferenceCompiler,
-            FunctionRegistry registry)
+            FunctionRegistry registry,
+            Map<CallExpression, MethodDefinition> tryExpressionsMap)
     {
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
         this.fieldReferenceCompiler = fieldReferenceCompiler;
         this.registry = registry;
+        this.tryExpressionsMap = tryExpressionsMap;
     }
 
     @Override
@@ -79,6 +88,9 @@ public class BytecodeExpressionVisitor
                     // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
                     generator = new SwitchCodeGenerator();
                     break;
+                case TRY:
+                    generator = new TryCodeGenerator(tryExpressionsMap);
+                    break;
                 // functions that take null as input
                 case IS_NULL:
                     generator = new IsNullCodeGenerator();
@@ -99,6 +111,12 @@ public class BytecodeExpressionVisitor
                     break;
                 case "OR":
                     generator = new OrCodeGenerator();
+                    break;
+                case DEREFERENCE:
+                    generator = new DereferenceCodeGenerator();
+                    break;
+                case ROW_CONSTRUCTOR:
+                    generator = new RowConstructorCodeGenerator();
                     break;
                 default:
                     generator = new FunctionCallCodeGenerator();

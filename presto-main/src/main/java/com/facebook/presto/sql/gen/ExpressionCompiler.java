@@ -31,6 +31,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 import static com.facebook.presto.bytecode.Access.FINAL;
 import static com.facebook.presto.bytecode.Access.PUBLIC;
@@ -80,26 +81,30 @@ public class ExpressionCompiler
         return pageProcessors.size();
     }
 
-    public CursorProcessor compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
+    public Supplier<CursorProcessor> compileCursorProcessor(RowExpression filter, List<RowExpression> projections, Object uniqueKey)
     {
-        try {
-            return cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey))
-                    .newInstance();
-        }
-        catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
-        }
+        Class<? extends CursorProcessor> cursorProcessor = cursorProcessors.getUnchecked(new CacheKey(filter, projections, uniqueKey));
+        return () -> {
+            try {
+                return cursorProcessor.newInstance();
+            }
+            catch (ReflectiveOperationException e) {
+                throw Throwables.propagate(e);
+            }
+        };
     }
 
-    public PageProcessor compilePageProcessor(RowExpression filter, List<RowExpression> projections)
+    public Supplier<PageProcessor> compilePageProcessor(RowExpression filter, List<RowExpression> projections)
     {
-        try {
-            return pageProcessors.getUnchecked(new CacheKey(filter, projections, null))
-                    .newInstance();
-        }
-        catch (ReflectiveOperationException e) {
-            throw Throwables.propagate(e);
-        }
+        Class<? extends PageProcessor> pageProcessor = pageProcessors.getUnchecked(new CacheKey(filter, projections, null));
+        return () -> {
+            try {
+                return pageProcessor.newInstance();
+            }
+            catch (ReflectiveOperationException e) {
+                throw Throwables.propagate(e);
+            }
+        };
     }
 
     private <T> Class<? extends T> compile(RowExpression filter, List<RowExpression> projections, BodyCompiler<T> bodyCompiler, Class<? extends T> superType)

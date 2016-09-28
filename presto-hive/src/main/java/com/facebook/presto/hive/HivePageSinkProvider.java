@@ -13,13 +13,15 @@
  */
 package com.facebook.presto.hive;
 
-import com.facebook.presto.hive.metastore.HiveMetastore;
+import com.facebook.presto.hive.metastore.ExtendedHiveMetastore;
+import com.facebook.presto.hive.metastore.HivePageSinkMetadataProvider;
 import com.facebook.presto.spi.ConnectorInsertTableHandle;
 import com.facebook.presto.spi.ConnectorOutputTableHandle;
 import com.facebook.presto.spi.ConnectorPageSink;
-import com.facebook.presto.spi.ConnectorPageSinkProvider;
 import com.facebook.presto.spi.ConnectorSession;
 import com.facebook.presto.spi.PageIndexerFactory;
+import com.facebook.presto.spi.connector.ConnectorPageSinkProvider;
+import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.type.TypeManager;
 import io.airlift.json.JsonCodec;
 
@@ -32,19 +34,20 @@ public class HivePageSinkProvider
         implements ConnectorPageSinkProvider
 {
     private final HdfsEnvironment hdfsEnvironment;
-    private final HiveMetastore metastore;
+    private final ExtendedHiveMetastore metastore;
     private final PageIndexerFactory pageIndexerFactory;
     private final TypeManager typeManager;
-    private final boolean respectTableFormat;
     private final int maxOpenPartitions;
     private final boolean immutablePartitions;
+    private final boolean forceIntegralToBigint;
+    private final boolean compressed;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
 
     @Inject
     public HivePageSinkProvider(
             HdfsEnvironment hdfsEnvironment,
-            HiveMetastore metastore,
+            ExtendedHiveMetastore metastore,
             PageIndexerFactory pageIndexerFactory,
             TypeManager typeManager,
             HiveClientConfig config,
@@ -52,48 +55,55 @@ public class HivePageSinkProvider
             JsonCodec<PartitionUpdate> partitionUpdateCodec)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        // TODO: this metastore should not have global cache
+        // As a temporary workaround, always disable cache on the workers
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.pageIndexerFactory = requireNonNull(pageIndexerFactory, "pageIndexerFactory is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.respectTableFormat = config.isRespectTableFormat();
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.immutablePartitions = config.isImmutablePartitions();
+        this.forceIntegralToBigint = config.isForceIntegralToBigint();
+        this.compressed = config.getHiveCompressionCodec() != HiveCompressionCodec.NONE;
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorOutputTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorOutputTableHandle tableHandle)
     {
         HiveWritableTableHandle handle = checkType(tableHandle, HiveOutputTableHandle.class, "tableHandle");
-        return createPageSink(handle, true);
+        return createPageSink(handle, true, session);
     }
 
     @Override
-    public ConnectorPageSink createPageSink(ConnectorSession session, ConnectorInsertTableHandle tableHandle)
+    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorInsertTableHandle tableHandle)
     {
         HiveInsertTableHandle handle = checkType(tableHandle, HiveInsertTableHandle.class, "tableHandle");
-        return createPageSink(handle, false);
+        return createPageSink(handle, false, session);
     }
 
-    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable)
+    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session)
     {
         return new HivePageSink(
                 handle.getSchemaName(),
                 handle.getTableName(),
                 isCreateTable,
                 handle.getInputColumns(),
-                handle.getHiveStorageFormat(),
+                handle.getTableStorageFormat(),
+                handle.getPartitionStorageFormat(),
                 handle.getLocationHandle(),
                 locationService,
                 handle.getFilePrefix(),
-                metastore,
+                handle.getBucketProperty(),
+                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), metastore),
                 pageIndexerFactory,
                 typeManager,
                 hdfsEnvironment,
-                respectTableFormat,
                 maxOpenPartitions,
                 immutablePartitions,
-                partitionUpdateCodec);
+                forceIntegralToBigint,
+                compressed,
+                partitionUpdateCodec,
+                session);
     }
 }

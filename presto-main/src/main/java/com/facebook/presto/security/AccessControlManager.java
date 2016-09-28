@@ -13,11 +13,14 @@
  */
 package com.facebook.presto.security;
 
+import com.facebook.presto.connector.ConnectorId;
 import com.facebook.presto.metadata.QualifiedObjectName;
+import com.facebook.presto.spi.CatalogSchemaTableName;
 import com.facebook.presto.spi.PrestoException;
 import com.facebook.presto.spi.connector.ConnectorAccessControl;
 import com.facebook.presto.spi.connector.ConnectorTransactionHandle;
 import com.facebook.presto.spi.security.Identity;
+import com.facebook.presto.spi.security.Privilege;
 import com.facebook.presto.spi.security.SystemAccessControl;
 import com.facebook.presto.spi.security.SystemAccessControlFactory;
 import com.facebook.presto.transaction.TransactionId;
@@ -101,7 +104,7 @@ public class AccessControlManager
         }
     }
 
-    public void addCatalogAccessControl(String connectorId, String catalogName, ConnectorAccessControl accessControl)
+    public void addCatalogAccessControl(ConnectorId connectorId, String catalogName, ConnectorAccessControl accessControl)
     {
         requireNonNull(connectorId, "connectorId is null");
         requireNonNull(catalogName, "catalogName is null");
@@ -162,6 +165,8 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
 
+        authorizationCheck(() -> systemAccessControl.get().checkCanCreateTable(identity, tableName.asCatalogSchemaTableName()));
+
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanCreateTable(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName()));
@@ -173,6 +178,8 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanDropTable(identity, tableName.asCatalogSchemaTableName()));
 
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
@@ -187,6 +194,8 @@ public class AccessControlManager
         requireNonNull(tableName, "tableName is null");
         requireNonNull(newTableName, "newTableName is null");
 
+        authorizationCheck(() -> systemAccessControl.get().checkCanRenameTable(identity, tableName.asCatalogSchemaTableName(), newTableName.asCatalogSchemaTableName()));
+
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanRenameTable(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName(), newTableName.asSchemaTableName()));
@@ -198,6 +207,8 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanAddColumn(identity, tableName.asCatalogSchemaTableName()));
 
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
@@ -211,6 +222,8 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
 
+        authorizationCheck(() -> systemAccessControl.get().checkCanRenameColumn(identity, tableName.asCatalogSchemaTableName()));
+
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanRenameColumn(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName()));
@@ -222,6 +235,8 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanSelectFromTable(identity, tableName.asCatalogSchemaTableName()));
 
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
@@ -235,6 +250,8 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
 
+        authorizationCheck(() -> systemAccessControl.get().checkCanInsertIntoTable(identity, tableName.asCatalogSchemaTableName()));
+
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanInsertIntoTable(entry.getTransactionHandle(transactionId), identity, tableName.asSchemaTableName()));
@@ -246,6 +263,8 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanDeleteFromTable(identity, tableName.asCatalogSchemaTableName()));
 
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
@@ -259,6 +278,8 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(viewName, "viewName is null");
 
+        authorizationCheck(() -> systemAccessControl.get().checkCanCreateView(identity, viewName.asCatalogSchemaTableName()));
+
         CatalogAccessControlEntry entry = catalogAccessControl.get(viewName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanCreateView(entry.getTransactionHandle(transactionId), identity, viewName.asSchemaTableName()));
@@ -270,6 +291,8 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(viewName, "viewName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanDropView(identity, viewName.asCatalogSchemaTableName()));
 
         CatalogAccessControlEntry entry = catalogAccessControl.get(viewName.getCatalogName());
         if (entry != null) {
@@ -283,6 +306,8 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(viewName, "viewName is null");
 
+        authorizationCheck(() -> systemAccessControl.get().checkCanSelectFromView(identity, viewName.asCatalogSchemaTableName()));
+
         CatalogAccessControlEntry entry = catalogAccessControl.get(viewName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanSelectFromView(entry.getTransactionHandle(transactionId), identity, viewName.asSchemaTableName()));
@@ -294,6 +319,8 @@ public class AccessControlManager
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(tableName, "tableName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanCreateViewWithSelectFromTable(identity, tableName.asCatalogSchemaTableName()));
 
         CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
         if (entry != null) {
@@ -307,9 +334,41 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(viewName, "viewName is null");
 
+        authorizationCheck(() -> systemAccessControl.get().checkCanCreateViewWithSelectFromView(identity, viewName.asCatalogSchemaTableName()));
+
         CatalogAccessControlEntry entry = catalogAccessControl.get(viewName.getCatalogName());
         if (entry != null) {
             authorizationCheck(() -> entry.getAccessControl().checkCanCreateViewWithSelectFromView(entry.getTransactionHandle(transactionId), identity, viewName.asSchemaTableName()));
+        }
+    }
+
+    @Override
+    public void checkCanGrantTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanGrantTablePrivilege(identity, privilege, tableName.asCatalogSchemaTableName()));
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanGrantTablePrivilege(entry.getTransactionHandle(transactionId), identity, privilege, tableName.asSchemaTableName()));
+        }
+    }
+
+    @Override
+    public void checkCanRevokeTablePrivilege(TransactionId transactionId, Identity identity, Privilege privilege, QualifiedObjectName tableName)
+    {
+        requireNonNull(identity, "identity is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanRevokeTablePrivilege(identity, privilege, tableName.asCatalogSchemaTableName()));
+
+        CatalogAccessControlEntry entry = catalogAccessControl.get(tableName.getCatalogName());
+        if (entry != null) {
+            authorizationCheck(() -> entry.getAccessControl().checkCanRevokeTablePrivilege(entry.getTransactionHandle(transactionId), identity, privilege, tableName.asSchemaTableName()));
         }
     }
 
@@ -328,6 +387,8 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(catalogName, "catalogName is null");
         requireNonNull(propertyName, "propertyName is null");
+
+        authorizationCheck(() -> systemAccessControl.get().checkCanSetCatalogSessionProperty(identity, catalogName, propertyName));
 
         CatalogAccessControlEntry entry = catalogAccessControl.get(catalogName);
         if (entry != null) {
@@ -401,10 +462,10 @@ public class AccessControlManager
 
     private class CatalogAccessControlEntry
     {
-        private final String connectorId;
+        private final ConnectorId connectorId;
         private final ConnectorAccessControl accessControl;
 
-        public CatalogAccessControlEntry(String connectorId, ConnectorAccessControl accessControl)
+        public CatalogAccessControlEntry(ConnectorId connectorId, ConnectorAccessControl accessControl)
         {
             this.connectorId = requireNonNull(connectorId, "connectorId is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -447,6 +508,86 @@ public class AccessControlManager
 
         @Override
         public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+        {
+        }
+
+        @Override
+        public void checkCanCreateTable(Identity identity, CatalogSchemaTableName table)
+        {
+        }
+
+        @Override
+        public void checkCanDropTable(Identity identity, CatalogSchemaTableName table)
+        {
+        }
+
+        @Override
+        public void checkCanRenameTable(Identity identity, CatalogSchemaTableName table, CatalogSchemaTableName newTable)
+        {
+        }
+
+        @Override
+        public void checkCanAddColumn(Identity identity, CatalogSchemaTableName table)
+        {
+        }
+
+        @Override
+        public void checkCanRenameColumn(Identity identity, CatalogSchemaTableName table)
+        {
+        }
+
+        @Override
+        public void checkCanSelectFromTable(Identity identity, CatalogSchemaTableName table)
+        {
+        }
+
+        @Override
+        public void checkCanInsertIntoTable(Identity identity, CatalogSchemaTableName table)
+        {
+        }
+
+        @Override
+        public void checkCanDeleteFromTable(Identity identity, CatalogSchemaTableName table)
+        {
+        }
+
+        @Override
+        public void checkCanCreateView(Identity identity, CatalogSchemaTableName view)
+        {
+        }
+
+        @Override
+        public void checkCanDropView(Identity identity, CatalogSchemaTableName view)
+        {
+        }
+
+        @Override
+        public void checkCanSelectFromView(Identity identity, CatalogSchemaTableName view)
+        {
+        }
+
+        @Override
+        public void checkCanCreateViewWithSelectFromTable(Identity identity, CatalogSchemaTableName table)
+        {
+        }
+
+        @Override
+        public void checkCanCreateViewWithSelectFromView(Identity identity, CatalogSchemaTableName view)
+        {
+        }
+
+        @Override
+        public void checkCanSetCatalogSessionProperty(Identity identity, String catalogName, String propertyName)
+        {
+        }
+
+        @Override
+        public void checkCanGrantTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table)
+        {
+        }
+
+        @Override
+        public void checkCanRevokeTablePrivilege(Identity identity, Privilege privilege, CatalogSchemaTableName table)
         {
         }
     }
