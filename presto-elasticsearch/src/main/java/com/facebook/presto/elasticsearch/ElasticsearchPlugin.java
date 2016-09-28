@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
 
-import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -33,7 +32,6 @@ public class ElasticsearchPlugin
     private TypeManager typeManager;
     private Map<String, String> optionalConfig = ImmutableMap.of();
 
-    @Override
     public synchronized void setOptionalConfig(Map<String, String> optionalConfig)
     {
         this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
@@ -51,12 +49,9 @@ public class ElasticsearchPlugin
     }
 
     @Override
-    public synchronized <T> List<T> getServices(Class<T> type)
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        if (type == ConnectorFactory.class) {
-            return ImmutableList.of(type.cast(new ElasticsearchConnectorFactory(typeManager, getOptionalConfig(), getClassLoader())));
-        }
-        return ImmutableList.of();
+        return ImmutableList.of(new ElasticsearchConnectorFactory(typeManager, getOptionalConfig(), getClassLoader()));
     }
 
     private static ClassLoader getClassLoader()

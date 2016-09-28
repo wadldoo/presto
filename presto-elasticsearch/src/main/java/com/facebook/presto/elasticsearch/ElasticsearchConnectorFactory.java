@@ -14,8 +14,10 @@
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.ConnectorHandleResolver;
+import com.facebook.presto.spi.NodeManager;
 import com.facebook.presto.spi.classloader.ThreadContextClassLoader;
 import com.facebook.presto.spi.connector.Connector;
+import com.facebook.presto.spi.connector.ConnectorContext;
 import com.facebook.presto.spi.connector.ConnectorFactory;
 import com.facebook.presto.spi.type.TypeManager;
 import com.google.common.base.Throwables;
@@ -31,13 +33,13 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchConnectorFactory
         implements ConnectorFactory
 {
-    private final TypeManager typeManager;
+    private TypeManager typeManager;
     private final Map<String, String> optionalConfig;
     private final ClassLoader classLoader;
 
     public ElasticsearchConnectorFactory(TypeManager typeManager, Map<String, String> optionalConfig, ClassLoader classLoader)
     {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+//        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.optionalConfig = ImmutableMap.copyOf(requireNonNull(optionalConfig, "optionalConfig is null"));
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
@@ -55,7 +57,7 @@ public class ElasticsearchConnectorFactory
     }
 
     @Override
-    public Connector create(final String connectorId, Map<String, String> requiredConfig)
+    public Connector create(final String connectorId, Map<String, String> requiredConfig, ConnectorContext context)
     {
         requireNonNull(requiredConfig, "requiredConfig is null");
         requireNonNull(optionalConfig, "optionalConfig is null");
@@ -63,7 +65,12 @@ public class ElasticsearchConnectorFactory
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             Bootstrap app = new Bootstrap(
                     new JsonModule(),
-                    new ElasticsearchModule(connectorId, typeManager));
+                    new ElasticsearchModule(connectorId, typeManager),
+                    binder -> {
+                        binder.bind(ElasticsearchConnectorId.class).toInstance(new ElasticsearchConnectorId(connectorId));
+                        binder.bind(TypeManager.class).toInstance(context.getTypeManager());
+                        binder.bind(NodeManager.class).toInstance(context.getNodeManager());
+                    });
 
             Injector injector = app
                     .strictConfig()
