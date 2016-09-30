@@ -183,11 +183,14 @@ public class ElasticsearchClient
             List<String> allColumnMetadata = getColumnsMetadata(null, json);
             for (String columnMetadata : allColumnMetadata) {
                 ElasticsearchColumn clm = createColumn(columnMetadata);
-                if (!(clm == null)) {
+                if (!(clm == null) && !result.contains(clm)) {
                     result.add(clm);
                 }
             }
         }
+
+        result.add(createColumn("_id.type:string"));
+        result.add(createColumn("_index.type:string"));
 
         return result;
     }
@@ -222,7 +225,6 @@ public class ElasticsearchClient
             throws JSONException, IOException
     {
         String[] items = fieldPathType.split(":");
-        String type = items[1];
         String path = items[0];
         Type prestoType;
 
@@ -230,15 +232,14 @@ public class ElasticsearchClient
             log.error("Invalid column path format. Ignoring...");
             return null;
         }
+
         if (!path.endsWith(".type")) {
-            log.error("Invalid column has no type info. Ignoring...");
+            log.debug("Invalid column has no type info. Ignoring...");
             return null;
         }
 
-        if (path.contains(".properties.")) {
-            log.error("Invalid complex column type. Ignoring...");
-            return null;
-        }
+        // when it is a complex type it should be handle as a nested
+        String type = path.contains(".properties.") ? "nested" : items[1];
 
         switch (type) {
             case "double":
@@ -252,14 +253,17 @@ public class ElasticsearchClient
             case "string":
                 prestoType = VARCHAR;
                 break;
+            case "nested":
+                prestoType = VARCHAR; //JSON
+                break;
             default:
-                log.error("Unsupported column type. Ignoring...");
-                return null;
+                prestoType = VARCHAR; //JSON
+                break;
         }
 
-        path = path.substring(0, path.lastIndexOf('.'));
-        //path = path.replaceAll("\\.properties\\.", ".");
-        return new ElasticsearchColumn(path.replaceAll("\\.", "_"), prestoType, path, type);
+        String propertyName = path.substring(0, path.indexOf('.'));
+
+        return new ElasticsearchColumn(propertyName, prestoType, propertyName, type);
     }
 
     void updateTableColumns(ElasticsearchTable table)
