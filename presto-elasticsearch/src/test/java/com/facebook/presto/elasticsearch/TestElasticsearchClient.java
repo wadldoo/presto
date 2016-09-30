@@ -22,7 +22,9 @@ import java.net.URL;
 import java.util.Map;
 
 import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_SCHEMA1;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_SCHEMA2;
 import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_TBL_1;
+import static com.facebook.presto.elasticsearch.ElasticsearchTestConstants.ES_TBL_2;
 import static com.facebook.presto.elasticsearch.MetadataUtil.CATALOG_CODEC;
 import static org.testng.Assert.assertNotNull;
 
@@ -55,6 +57,16 @@ public class TestElasticsearchClient
             throws Exception
     {
         ElasticsearchTable table = client.getTable(ES_SCHEMA1, ES_TBL_1);
+        assertNotNull(table);
+        assertNotNull(table.getColumns());
+        // assertEquals(table.getColumns().size(), EXPECTED_NR_OF_COLUMNS);
+    }
+
+    @Test
+    public void testTable2()
+        throws Exception
+    {
+        ElasticsearchTable table = client.getTable(ES_SCHEMA2, ES_TBL_2);
         assertNotNull(table);
         assertNotNull(table.getColumns());
         // assertEquals(table.getColumns().size(), EXPECTED_NR_OF_COLUMNS);
