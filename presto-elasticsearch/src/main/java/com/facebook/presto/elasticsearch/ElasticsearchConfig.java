@@ -29,7 +29,7 @@ public class ElasticsearchConfig
         return metadata;
     }
 
-    @Config("metadata-uri")
+    @Config("elasticsearch.metadata-uri")
     public ElasticsearchConfig setMetadata(URI metadata)
     {
         this.metadata = metadata;
