@@ -100,7 +100,7 @@ public class TestElasticsearchConnector
 
         Connector connector = connectorFactory.create(
                 connectorId,
-                ImmutableMap.of("metadata-uri", metadataUri.toString()),
+                ImmutableMap.of("elasticsearch.metadata-uri", metadataUri.toString()),
                 new TestingConnectorContext());
 
         metadata = connector.getMetadata(ElasticsearchTransactionHandle.INSTANCE);
@@ -112,8 +112,8 @@ public class TestElasticsearchConnector
         recordSetProvider = connector.getRecordSetProvider();
         assertInstanceOf(recordSetProvider, ElasticsearchRecordSetProvider.class);
 
-        database = ElasticsearchTestConstants.ES_SCHEMA2;
-        table = new SchemaTableName(database, ElasticsearchTestConstants.ES_TBL_2);
+        database = ElasticsearchTestConstants.ES_SCHEMA1;
+        table = new SchemaTableName(database, ElasticsearchTestConstants.ES_TBL_1);
         tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
         invalidTable = new SchemaTableName(database, "totally_invalid_table_name");
     }
