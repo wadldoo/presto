@@ -13,8 +13,10 @@
  */
 package com.facebook.presto.elasticsearch;
 
+import com.facebook.presto.spi.ColumnHandle;
 import com.facebook.presto.spi.ConnectorSplit;
 import com.facebook.presto.spi.HostAddress;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
@@ -32,18 +34,21 @@ public class ElasticsearchSplit
     private final ElasticsearchTableSource uri;
     private final boolean remotelyAccessible;
     private final ImmutableList<HostAddress> addresses;
+    private final TupleDomain<ColumnHandle> tupleDomain;
 
     @JsonCreator
     public ElasticsearchSplit(
             @JsonProperty("connectorId") String connectorId,
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
-            @JsonProperty("uri") ElasticsearchTableSource uri)
+            @JsonProperty("uri") ElasticsearchTableSource uri,
+            @JsonProperty("tupleDomain") TupleDomain<ColumnHandle> tupleDomain)
     {
         this.schemaName = requireNonNull(schemaName, "schema name is null");
         this.connectorId = requireNonNull(connectorId, "connector id is null");
         this.tableName = requireNonNull(tableName, "table name is null");
         this.uri = requireNonNull(uri, "uri is null");
+        this.tupleDomain = requireNonNull(tupleDomain, "tupleDomain is null");
 
 //        if ("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme())) {
         remotelyAccessible = true;
@@ -73,6 +78,12 @@ public class ElasticsearchSplit
     public ElasticsearchTableSource getUri()
     {
         return uri;
+    }
+
+    @JsonProperty
+    public TupleDomain<ColumnHandle> getTupleDomain()
+    {
+        return tupleDomain;
     }
 
     @Override
