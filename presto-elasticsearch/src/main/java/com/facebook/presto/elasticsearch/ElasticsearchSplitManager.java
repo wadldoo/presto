@@ -44,6 +44,7 @@ public class ElasticsearchSplitManager
         this.elasticsearchClient = requireNonNull(elasticsearchClient, "client is null");
     }
 
+    @Override
     public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableLayoutHandle layout)
     {
         ElasticsearchTableLayoutHandle layoutHandle = checkType(layout, ElasticsearchTableLayoutHandle.class, "partition");
@@ -55,7 +56,7 @@ public class ElasticsearchSplitManager
         List<ConnectorSplit> splits = new ArrayList<>();
         for (ElasticsearchTableSource uri : table.getSources()) {
             int clmsCount = table.getColumns().size();
-            splits.add(new ElasticsearchSplit(connectorId, tableHandle.getSchemaName(), tableHandle.getTableName(), uri));
+            splits.add(new ElasticsearchSplit(connectorId, tableHandle.getSchemaName(), tableHandle.getTableName(), uri, layoutHandle.getTupleDomain()));
         }
         Collections.shuffle(splits);
 
