@@ -14,6 +14,7 @@
 package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.ColumnMetadata;
+import com.facebook.presto.spi.predicate.TupleDomain;
 import com.google.common.io.Resources;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -50,10 +51,12 @@ public class TestElasticsearchRecordCursor
         ElasticsearchTable table = client.getTable(ES_SCHEMA1, ES_TBL_1);
         assertNotNull(table);
 
+        ElasticsearchSplit split = new ElasticsearchSplit(CONNECTOR_ID, ES_SCHEMA1, ES_TBL_1, table.getSources().get(0), TupleDomain.none());
+
         ElasticsearchRecordCursor elasticsearchRecordCursor =
                 new ElasticsearchRecordCursor(
                         getElasticsearchColumnHandles(table),
-                        table.getSources().get(0), client);
+                        split, client);
 
         assertNotNull(elasticsearchRecordCursor);
     }
