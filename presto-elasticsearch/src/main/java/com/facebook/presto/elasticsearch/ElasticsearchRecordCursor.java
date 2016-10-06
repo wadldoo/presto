@@ -19,9 +19,6 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchType;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.ArrayList;
@@ -48,7 +45,7 @@ public class ElasticsearchRecordCursor
     private long totalBytes;
     private List<Object> fields;
 
-    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchTableSource tableSource, ElasticsearchClient elasticsearchClient)
+    public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchSplit split, ElasticsearchClient elasticsearchClient)
     {
         this.columnHandles = columnHandles;
         this.jsonPathToIndex = new HashMap();
@@ -58,7 +55,7 @@ public class ElasticsearchRecordCursor
             this.jsonPathToIndex.put(columnHandles.get(i).getColumnJsonPath(), i);
         }
 
-        this.lines = getRows(tableSource, elasticsearchClient).iterator();
+        this.lines = getRows(new ElasticsearchQueryBuilder(columnHandles, split, elasticsearchClient)).iterator();
     }
 
     @Override
@@ -164,26 +161,14 @@ public class ElasticsearchRecordCursor
     {
     }
 
-    List<SearchHit> getRows(ElasticsearchTableSource tableSource, ElasticsearchClient elasticsearchClient)
+    private List<SearchHit> getRows(ElasticsearchQueryBuilder queryBuilder)
     {
         List<SearchHit> result = new ArrayList<>();
-        String clusterName = tableSource.getClusterName();
-        String hostAddress = tableSource.getHostAddress();
-        int port = tableSource.getPort();
-        String index = tableSource.getIndex();
-        String type = tableSource.getType();
 
-        log.debug(String.format("Connecting to cluster %s from %s:%d, index %s, type %s", clusterName, hostAddress, port, index, type));
-        Client client = elasticsearchClient.getInternalClients().get(clusterName);
-        SearchResponse scrollResp = client
-                .prepareSearch(index != null && !index.isEmpty() ? index : "_all")
-                .setTypes(tableSource.getType())
-                .setSearchType(SearchType.SCAN)
-                .setScroll(new TimeValue(10000))
-                .setSize(5000)
-                .setSize(50000)
-                .execute()
-                .actionGet();
+        SearchResponse scrollResp = queryBuilder
+            .buildScrollSearchRequest()
+            .execute()
+            .actionGet();
 
         //Scroll until no hits are returned
         while (true) {
@@ -191,9 +176,8 @@ public class ElasticsearchRecordCursor
                 result.add(hit);
             }
 
-            scrollResp = client
+            scrollResp = queryBuilder
                 .prepareSearchScroll(scrollResp.getScrollId())
-                .setScroll(new TimeValue(10000))
                 .execute()
                 .actionGet();
 
