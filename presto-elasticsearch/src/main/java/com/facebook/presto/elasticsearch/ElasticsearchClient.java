@@ -52,7 +52,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
+import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
+import static com.facebook.presto.spi.type.IntegerType.INTEGER;
+import static com.facebook.presto.spi.type.VarbinaryType.VARBINARY;
 import static com.facebook.presto.spi.type.VarcharType.VARCHAR;
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.collect.Maps.transformValues;
@@ -247,11 +250,19 @@ public class ElasticsearchClient
                 prestoType = DOUBLE;
                 break;
             case "integer":
+                prestoType = INTEGER;
+                break;
             case "long":
                 prestoType = BIGINT;
                 break;
             case "string":
                 prestoType = VARCHAR;
+                break;
+            case "boolean":
+                prestoType = BOOLEAN;
+                break;
+            case "binary":
+                prestoType = VARBINARY;
                 break;
             case "nested":
                 prestoType = VARCHAR; //JSON
