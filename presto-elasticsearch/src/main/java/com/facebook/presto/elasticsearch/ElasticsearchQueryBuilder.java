@@ -18,7 +18,9 @@ import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.type.BigintType;
+import com.facebook.presto.spi.type.BooleanType;
 import com.facebook.presto.spi.type.DoubleType;
+import com.facebook.presto.spi.type.IntegerType;
 import com.facebook.presto.spi.type.Type;
 import com.facebook.presto.spi.type.VarcharType;
 import io.airlift.log.Logger;
@@ -162,23 +164,9 @@ public class ElasticsearchQueryBuilder
                 }
             }
 
-            // Add back all of the possible single values either as an equality or an IN predicate
             if (singleValues.size() == 1) {
                 boolFilterBuilder.must(FilterBuilders.termFilter(columnName,  getValue(type, getOnlyElement(singleValues))));
             }
-//            else if (singleValues.size() > 1) {
-//                for (Object value : singleValues) {
-//                    bindValue(value, type, accumulator);
-//                }
-//                String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
-//                disjuncts.add(quote(columnName) + " IN (" + values + ")");
-//            }
-
-            // Add nullability disjuncts
-//            checkState(!disjuncts.isEmpty());
-//            if (domain.isNullAllowed()) {
-//                disjuncts.add(quote(columnName) + " IS NULL");
-//            }
         }
 
         return boolFilterBuilder;
@@ -187,16 +175,22 @@ public class ElasticsearchQueryBuilder
     private Object getValue(Type type, Object value)
     {
         if (type.equals(BigintType.BIGINT)) {
-          return (long) value;
+            return (long) value;
+        }
+        else if (type.equals(IntegerType.INTEGER)) {
+            return ((Number) value).intValue();
         }
         else if (type.equals(DoubleType.DOUBLE)) {
-           return (double) value;
+            return (double) value;
         }
-        else if (type instanceof VarcharType) {
-           return ((Slice) value).toStringUtf8();
+        else if (type.equals(VarcharType.VARCHAR)) {
+            return ((Slice) value).toStringUtf8();
+        }
+        else if (type.equals(BooleanType.BOOLEAN)) {
+            return (boolean) value;
         }
         else {
-           throw new UnsupportedOperationException("Can't handle type: " + type);
+           throw new UnsupportedOperationException("Query Builder can't handle type: " + type);
         }
     }
 }
