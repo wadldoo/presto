@@ -204,20 +204,27 @@ public class PrestoPreparedStatement
     public void setObject(int parameterIndex, Object x)
             throws SQLException
     {
-        if (x instanceof String)
+        if (x instanceof String) {
             sql = sql.replaceFirst("([?])", "'" + x.toString() + "'");
-        else if (x instanceof BigDecimal)
-            setBigDecimal(parameterIndex, (BigDecimal)x);
-        else if (x instanceof Short)
+        }
+        else if (x instanceof BigDecimal) {
+            setBigDecimal(parameterIndex, (BigDecimal) x);
+        }
+        else if (x instanceof Short) {
             setShort(parameterIndex, (Short) x);
-        else if (x instanceof Integer)
+        }
+        else if (x instanceof Integer) {
             setInt(parameterIndex, (Integer) x);
-        else if (x instanceof Long)
+        }
+        else if (x instanceof Long) {
             setLong(parameterIndex, (Long) x);
-        else if (x instanceof Float)
+        }
+        else if (x instanceof Float) {
             setFloat(parameterIndex, (Float) x);
-        else if (x instanceof Double)
+        }
+        else if (x instanceof Double) {
             setDouble(parameterIndex, (Double) x);
+        }
     }
 
     @Override
