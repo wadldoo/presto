@@ -93,15 +93,15 @@ public class ElasticsearchRecordCursor
 
         fields = new ArrayList(Collections.nCopies(columnHandles.size(), null));
 
-        fields.set(jsonPathToIndex.get("_id"), hit.getId());
-        fields.set(jsonPathToIndex.get("_index"), hit.getIndex());
+        setFieldIfExists("_id", hit.getId());
+        setFieldIfExists("_index", hit.getIndex());
 
         Map<String, Object> map = hit.getSource();
         for (Map.Entry<String, Object> entry : map.entrySet()) {
             String jsonPath = entry.getKey().toString();
             Object entryValue = entry.getValue();
 
-            fields.set(jsonPathToIndex.get(jsonPath), entryValue);
+            setFieldIfExists(jsonPath, entryValue);
         }
 
         totalBytes += fields.size();
@@ -189,7 +189,14 @@ public class ElasticsearchRecordCursor
         return result;
     }
 
-    Object getFieldValue(int field)
+    private void setFieldIfExists(String key, Object value)
+    {
+        if (jsonPathToIndex.containsKey(key)) {
+            fields.set(jsonPathToIndex.get(key), value);
+        }
+    }
+
+    private Object getFieldValue(int field)
     {
         checkState(fields != null, "Cursor has not been advanced yet");
         return fields.get(field);
