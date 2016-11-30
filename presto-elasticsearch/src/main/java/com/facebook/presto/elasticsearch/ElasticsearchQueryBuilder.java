@@ -52,11 +52,12 @@ public class ElasticsearchQueryBuilder
     final Client client;
     final TupleDomain<ColumnHandle> tupleDomain;
     final List<ElasticsearchColumnHandle> columns;
+    final boolean isToAddFields;
 
     private final String index;
     private final String type;
 
-    public ElasticsearchQueryBuilder(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchSplit split, ElasticsearchClient elasticsearchClient)
+    public ElasticsearchQueryBuilder(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchSplit split, ElasticsearchClient elasticsearchClient, boolean isToAddFields)
     {
         ElasticsearchTableSource tableSource = split.getUri();
         String clusterName = tableSource.getClusterName();
@@ -70,6 +71,8 @@ public class ElasticsearchQueryBuilder
 
         this.tupleDomain = split.getTupleDomain();
         this.columns = columnHandles;
+
+        this.isToAddFields = isToAddFields;
     }
 
     public SearchRequestBuilder buildScrollSearchRequest()
@@ -81,6 +84,14 @@ public class ElasticsearchQueryBuilder
                     .setScroll(new TimeValue(SCROLL_TIME))
                     .setQuery(getSearchQuery())
                     .setSize(SCROLL_SIZE); // per shard
+
+        // elasticsearch doesn't support adding fields when there is a nested type
+        if (isToAddFields) {
+            searchRequestBuilder.addFields(columns
+                        .stream()
+                        .map((c) -> c.getColumnJsonPath())
+                        .toArray(size -> new String[size]));
+        }
 
         return searchRequestBuilder;
     }
@@ -98,12 +109,14 @@ public class ElasticsearchQueryBuilder
 
         for (ElasticsearchColumnHandle column : columns) {
             Type type = column.getColumnType();
-            // if (isAcceptedType(type)) {
-            Domain domain = tupleDomain.getDomains().get().get(column);
-            if (domain != null) {
-                boolFilterBuilder.must(addFilter(column.getColumnJsonPath(), domain, type));
-            }
-            // }
+            tupleDomain
+                .getDomains()
+                .ifPresent((e) -> {
+                    Domain domain = e.get(column);
+                    if (domain != null) {
+                      boolFilterBuilder.must(addFilter(column.getColumnJsonPath(), domain, type));
+                    }
+                });
         }
 
         return QueryBuilders.filteredQuery(
