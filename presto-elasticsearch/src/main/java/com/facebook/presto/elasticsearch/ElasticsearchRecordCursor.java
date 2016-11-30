@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHitField;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -44,6 +45,7 @@ public class ElasticsearchRecordCursor
     private final Iterator<SearchHit> lines;
     private long totalBytes;
     private List<Object> fields;
+    private final boolean isFieldQuery;
 
     public ElasticsearchRecordCursor(List<ElasticsearchColumnHandle> columnHandles, ElasticsearchSplit split, ElasticsearchClient elasticsearchClient)
     {
@@ -55,7 +57,13 @@ public class ElasticsearchRecordCursor
             this.jsonPathToIndex.put(columnHandles.get(i).getColumnJsonPath(), i);
         }
 
-        this.lines = getRows(new ElasticsearchQueryBuilder(columnHandles, split, elasticsearchClient)).iterator();
+        // in elasticsearch when there is nested types it is not possible to add fields in queries
+        this.isFieldQuery = columnHandles
+                   .stream()
+                   .filter((c) -> c.getColumnJsonType().equals("nested"))
+                   .count() == 0;
+
+        this.lines = getRows(new ElasticsearchQueryBuilder(columnHandles, split, elasticsearchClient, isFieldQuery)).iterator();
     }
 
     @Override
@@ -96,12 +104,11 @@ public class ElasticsearchRecordCursor
         setFieldIfExists("_id", hit.getId());
         setFieldIfExists("_index", hit.getIndex());
 
-        Map<String, Object> map = hit.getSource();
-        for (Map.Entry<String, Object> entry : map.entrySet()) {
-            String jsonPath = entry.getKey().toString();
-            Object entryValue = entry.getValue();
-
-            setFieldIfExists(jsonPath, entryValue);
+        if (isFieldQuery) {
+            extractFromHitField(hit);
+        }
+        else {
+            extractFromSource(hit);
         }
 
         totalBytes += fields.size();
@@ -200,5 +207,27 @@ public class ElasticsearchRecordCursor
     {
         checkState(fields != null, "Cursor has not been advanced yet");
         return fields.get(field);
+    }
+
+    private void extractFromHitField(SearchHit hit)
+    {
+        Map<String, SearchHitField> map = hit.getFields();
+        for (Map.Entry<String, SearchHitField> entry : map.entrySet()) {
+            String jsonPath = entry.getKey().toString();
+            Object entryValue = entry.getValue().getValue();
+
+            setFieldIfExists(jsonPath, entryValue);
+        }
+    }
+
+    private void extractFromSource(SearchHit hit)
+    {
+        Map<String, Object> map = hit.getSource();
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            String jsonPath = entry.getKey().toString();
+            Object entryValue = entry.getValue();
+
+            setFieldIfExists(jsonPath, entryValue);
+        }
     }
 }
