@@ -15,14 +15,15 @@ package com.facebook.presto.elasticsearch;
 
 import com.facebook.presto.spi.RecordCursor;
 import com.facebook.presto.spi.type.Type;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHitField;
+import org.json.JSONArray;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -39,7 +40,6 @@ import static com.google.common.base.Preconditions.checkState;
 public class ElasticsearchRecordCursor
         implements RecordCursor
 {
-    private static final Logger log = Logger.get(ElasticsearchRecordCursor.class);
     private final List<ElasticsearchColumnHandle> columnHandles;
     private final Map<String, Integer> jsonPathToIndex;
     private final Iterator<SearchHit> lines;
@@ -141,7 +141,14 @@ public class ElasticsearchRecordCursor
     public Slice getSlice(int field)
     {
         checkFieldType(field, VARCHAR);
-        return Slices.utf8Slice(String.valueOf(getFieldValue(field)));
+
+        Object value = getFieldValue(field);
+        if (value instanceof Collection) {
+            return Slices.utf8Slice(String.valueOf(toJson((List<Map<String, Object>>) value)));
+        }
+        else {
+            return Slices.utf8Slice(String.valueOf(value));
+        }
     }
 
     @Override
@@ -229,5 +236,10 @@ public class ElasticsearchRecordCursor
 
             setFieldIfExists(jsonPath, entryValue);
         }
+    }
+
+    private String toJson(Collection<Map<String, Object>> list)
+    {
+        return new JSONArray(list).toString();
     }
 }
