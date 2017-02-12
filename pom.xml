@@ -117,6 +117,7 @@
         <module>presto-plugin-toolkit</module>
         <module>presto-resource-group-managers</module>
         <module>presto-elasticsearch</module>
+        <module>presto-elasticsearch5</module>
     </modules>
 
     <dependencyManagement>
@@ -186,6 +187,13 @@
             <dependency>
                 <groupId>com.facebook.presto</groupId>
                 <artifactId>presto-elasticsearch</artifactId>
+                <version>${project.version}</version>
+                <type>zip</type>
+            </dependency>
+
+            <dependency>
+                <groupId>com.facebook.presto</groupId>
+                <artifactId>presto-elasticsearch5</artifactId>
                 <version>${project.version}</version>
                 <type>zip</type>
             </dependency>
