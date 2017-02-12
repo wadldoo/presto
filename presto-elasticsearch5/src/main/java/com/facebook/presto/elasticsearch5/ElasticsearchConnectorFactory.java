@@ -45,7 +45,7 @@ public class ElasticsearchConnectorFactory
     @Override
     public String getName()
     {
-        return "elasticsearch";
+        return "elasticsearch5";
     }
 
     @Override
